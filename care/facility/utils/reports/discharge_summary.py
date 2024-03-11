@@ -1,4 +1,6 @@
 import logging
+import os
+import subprocess
 import tempfile
 from collections.abc import Iterable
 from uuid import uuid4
@@ -27,6 +29,9 @@ from care.facility.models.icd11_diagnosis import (
 )
 from care.facility.static_data.icd11 import get_icd11_diagnoses_objects_by_ids
 from care.hcx.models.policy import Policy
+import time
+import functools
+from memory_profiler import profile
 
 logger = logging.getLogger(__name__)
 
@@ -150,27 +155,59 @@ def get_discharge_summary_data(consultation: PatientConsultation):
     }
 
 
+def compile_typ(source_file, output_file=None):
+    try:
+        command = ["typst", 'compile', source_file]
+
+        if output_file:
+            command.append(output_file)
+
+        subprocess.run(command, check=True)
+
+        return True
+    except subprocess.CalledProcessError as e:
+        print("Error:", e)
+        return False
+
+
 def generate_discharge_summary_pdf(data, file):
     logger.info(
         f"Generating Discharge Summary html for {data['consultation'].external_id}"
     )
-    html_string = render_to_string("reports/patient_discharge_summary_pdf.html", data)
+    content = render_to_string("reports/example.typ", data)
 
     logger.info(
         f"Generating Discharge Summary pdf for {data['consultation'].external_id}"
     )
-    bytestring_to_pdf(
-        html_string.encode(),
-        file,
-        **{
-            "no-margins": None,
-            "disable-gpu": None,
-            "disable-dev-shm-usage": False,
-            "window-size": "2480,3508",
-        },
-    )
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.typ', delete=False) as typ_file:
+        typ_file.write(content)
+        typ_file_path = typ_file.name
+
+    compile_typ(typ_file_path, file.name)
 
 
+# def generate_discharge_summary_pdf(data, file):
+#     logger.info(
+#         f"Generating Discharge Summary html for {data['consultation'].external_id}"
+#     )
+#     html_string = render_to_string("reports/patient_discharge_summary_pdf.html", data)
+#
+#     logger.info(
+#         f"Generating Discharge Summary pdf for {data['consultation'].external_id}"
+#     )
+#     bytestring_to_pdf(
+#         html_string.encode(),
+#         file,
+#         **{
+#             "no-margins": None,
+#             "disable-gpu": None,
+#             "disable-dev-shm-usage": False,
+#             "window-size": "2480,3508",
+#         },
+#     )
+
+@profile
 def generate_and_upload_discharge_summary(consultation: PatientConsultation):
     logger.info(f"Generating Discharge Summary for {consultation.external_id}")
 
@@ -189,7 +226,7 @@ def generate_and_upload_discharge_summary(consultation: PatientConsultation):
         data["date"] = current_date
 
         set_lock(consultation.external_id, 50)
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as file:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as file:
             generate_discharge_summary_pdf(data, file)
             logger.info(f"Uploading Discharge Summary for {consultation.external_id}")
             summary_file.put_object(file, ContentType="application/pdf")
