@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -12,6 +13,8 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 from hardcopy import bytestring_to_pdf
+from weasyprint import HTML, CSS
+from xhtml2pdf import pisa
 
 from care.facility.models import (
     DailyRound,
@@ -32,6 +35,8 @@ from care.hcx.models.policy import Policy
 import time
 import functools
 from memory_profiler import profile
+
+from config.settings.base import APPS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -155,12 +160,19 @@ def get_discharge_summary_data(consultation: PatientConsultation):
     }
 
 
-def compile_typ(source_file, output_file=None):
+def compile_typ(output_file=None, data=None):
     try:
-        command = ["typst", 'compile', source_file]
+        # for actual usage we need to update data in json encoded format
+        data = {
+            "data1": 1,
+            "data2": 2
+        }
+        source_file = APPS_DIR / "templates" / "reports" / "example.typ"
+        command = ["typst", 'compile', source_file, "--input", "obj=" + json.dumps(data)]
 
         if output_file:
             command.append(output_file)
+        print(output_file)
 
         subprocess.run(command, check=True)
 
@@ -170,23 +182,20 @@ def compile_typ(source_file, output_file=None):
         return False
 
 
+# using .typ
 def generate_discharge_summary_pdf(data, file):
     logger.info(
         f"Generating Discharge Summary html for {data['consultation'].external_id}"
     )
-    content = render_to_string("reports/example.typ", data)
 
     logger.info(
         f"Generating Discharge Summary pdf for {data['consultation'].external_id}"
     )
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.typ', delete=False) as typ_file:
-        typ_file.write(content)
-        typ_file_path = typ_file.name
-
-    compile_typ(typ_file_path, file.name)
+    compile_typ(output_file=file.name, data=data)
 
 
+# django-hardcopy
 # def generate_discharge_summary_pdf(data, file):
 #     logger.info(
 #         f"Generating Discharge Summary html for {data['consultation'].external_id}"
@@ -206,6 +215,42 @@ def generate_discharge_summary_pdf(data, file):
 #             "window-size": "2480,3508",
 #         },
 #     )
+
+
+# weasy print
+# def generate_discharge_summary_pdf(data, file):
+#     logger.info(
+#         f"Generating Discharge Summary html for {data['consultation'].external_id}"
+#     )
+#     html_string = render_to_string("reports/patient_discharge_summary_pdf_weasy.html", data)
+#
+#     logger.info(
+#         f"Generating Discharge Summary pdf for {data['consultation'].external_id}"
+#     )
+#     HTML(string=html_string).write_pdf(file.name)
+
+
+# xhtml2pdf
+# def generate_discharge_summary_pdf(data, file):
+#     logger.info(
+#         f"Generating Discharge Summary html for {data['consultation'].external_id}"
+#     )
+#     html_string = render_to_string("reports/patient_discharge_summary_pdf_xhtml.html", data)
+#
+#     logger.info(
+#         f"Generating Discharge Summary pdf for {data['consultation'].external_id}"
+#     )
+#
+#     # Open output file for writing (truncated binary)
+#     with open(file.name, "w+b") as result_file:
+#         # Convert HTML to PDF
+#         pisa_status = pisa.CreatePDF(html_string, dest=result_file)
+#         # Return False on success and True on errors
+#         if pisa_status.err:
+#             logger.error(f"PDF creation failed: {pisa_status.err}")
+#         else:
+#             logger.info("PDF creation successful!")
+
 
 @profile
 def generate_and_upload_discharge_summary(consultation: PatientConsultation):
