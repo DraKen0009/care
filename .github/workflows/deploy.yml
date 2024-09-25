@@ -15,6 +15,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+
 env:
   IMAGE_NAME: care
   AWS_DEFAULT_REGION: ap-south-1
