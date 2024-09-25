@@ -19,7 +19,7 @@ env:
   IMAGE_NAME: care
   AWS_DEFAULT_REGION: ap-south-1
   AWS_DEFAULT_OUTPUT: json
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID}}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   EKS_CLUSTER_NAME: ${{ secrets.AWS_EKS_CLUSTER_NAME }}
   ECS_SERVICE_BACKEND: "care-backend"
@@ -69,6 +69,64 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ github.event.repository.name }}:latest
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
+
+      - name: Fill Celery Cron definition
+        id: task-def-celery-cron
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION_CELERY }}
+          container-name: ${{ env.CONTAINER_NAME_CRON }}
+          image: ghcr.io/${{ github.repository }}:latest
+
+      - name: Fill Celery Worker definition
+        id: task-def-celery-worker
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def-celery-cron.outputs.task-definition }}
+          container-name: ${{ env.CONTAINER_NAME_WORKER }}
+          image: ghcr.io/${{ github.repository }}:latest
+
+      - name: Deploy Backend Celery
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def-celery-worker.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_CELERY }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Fill Backend Api definition
+        id: task-def-api
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION_BACKEND }}
+          container-name: ${{ env.CONTAINER_NAME_BACKEND }}
+          image: ghcr.io/${{ github.repository }}:latest
+
+      - name: Deploy Backend Api
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def-api.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_BACKEND }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+  deploy-staging-gcp:
+    needs: build
+    if: github.ref == 'refs/heads/staging'
+    name: Deploy to staging GCP cluster
+    runs-on: ubuntu-latest
+    environment:
+      name: Staging-GCP
+      url: https://care-staging-api.ohc.network/
+    steps:
+      - name: Trigger deploy
+        run: |
+          COMMIT_SHA=${{ github.sha }}
+          JSON='{"substitutions": {"care_be_tag":"'"$COMMIT_SHA"'", "care_fe_tag": "", "metabase_tag": ""}}'
+          curl --location "${{ secrets.STAGING_GCP_DEPLOY_URL }}" \
+            --header 'Content-Type: application/json' --data "$JSON"
