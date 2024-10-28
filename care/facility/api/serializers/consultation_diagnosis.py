@@ -32,7 +32,12 @@ class ConsultationDiagnosisSerializer(serializers.ModelSerializer):
     created_by = UserBaseMinimumSerializer(read_only=True)
 
     def get_diagnosis_object(self, obj):
-        return get_icd11_diagnosis_object_by_id(obj.diagnosis_id, as_dict=True)
+        diagnosis, error = get_icd11_diagnosis_object_by_id(
+            obj.diagnosis_id, as_dict=True
+        )
+        return (
+            diagnosis if diagnosis else {"detail": error or "Diagnosis not available"}
+        )
 
     class Meta:
         model = ConsultationDiagnosis

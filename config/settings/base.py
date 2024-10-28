@@ -3,6 +3,7 @@ Base settings to build other settings files upon.
 """
 
 import logging
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -351,6 +352,10 @@ LOGGING = {
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
+
+# Disable logs when running tests
+if "test" in sys.argv:
+    logging.disable(logging.CRITICAL)
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------

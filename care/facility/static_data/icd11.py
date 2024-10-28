@@ -3,13 +3,14 @@ import re
 from typing import TypedDict
 
 from django.core.paginator import Paginator
+from redis.exceptions import RedisError
 from redis_om import Field, Migrator
+from redis_om.model.model import NotFoundError as RedisModelNotFoundError
 
 from care.facility.models.icd11_diagnosis import ICD11Diagnosis
 from care.utils.static_data.models.base import BaseRedisModel
 
 logger = logging.getLogger(__name__)
-
 
 DISEASE_CODE_PATTERN = r"^(?:[A-Z]+\d|\d+[A-Z])[A-Z\d.]*\s"
 
@@ -58,12 +59,41 @@ def load_icd11_diagnosis():
 
 def get_icd11_diagnosis_object_by_id(
     diagnosis_id: int, as_dict=False
-) -> ICD11 | ICD11Object | None:
+) -> tuple[ICD11 | ICD11Object | None, str | None]:
+    """
+    Retrieves ICD11 diagnosis by ID with Redis lookup and DB fallback.
+    Returns a tuple: (diagnosis_data, error_message)
+    """
     try:
         diagnosis = ICD11.get(diagnosis_id)
-        return diagnosis.get_representation() if as_dict else diagnosis
-    except Exception:
-        return None
+        return diagnosis.get_representation() if as_dict else diagnosis, None
+
+    except RedisModelNotFoundError:
+        try:
+            diagnosis = ICD11Diagnosis.objects.get(id=diagnosis_id)
+
+            icd11_obj = ICD11(
+                id=diagnosis.id,
+                label=diagnosis.label,
+                chapter=diagnosis.meta_chapter_short or "null",
+                has_code=1 if re.match(DISEASE_CODE_PATTERN, diagnosis.label) else 0,
+                vec=diagnosis.label.replace(".", "\\.", 1),
+            )
+            icd11_obj.save()
+            return icd11_obj.get_representation() if as_dict else icd11_obj, None
+
+        except ICD11Diagnosis.DoesNotExist:
+            return None, "Diagnosis with the specified ID not found."
+
+    except RedisError:
+        return None, "Redis connection issue encountered."
+
+    except Exception as e:
+        logger.error(
+            "An unexpected error occurred while retrieving the diagnosis. Details - %s",
+            e,
+        )
+        return None, "An unexpected error occurred while retrieving the diagnosis."
 
 
 def get_icd11_diagnoses_objects_by_ids(diagnoses_ids: list[int]) -> list[ICD11Object]:

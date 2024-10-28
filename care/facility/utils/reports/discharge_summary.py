@@ -69,7 +69,7 @@ def get_diagnoses_data(consultation: PatientConsultation):
     # retrieve diagnosis objects
     diagnoses = []
     for entry in entries:
-        diagnose = get_icd11_diagnosis_object_by_id(entry[0])
+        diagnose, _ = get_icd11_diagnosis_object_by_id(entry[0])
         if diagnose:
             diagnoses.append(diagnose)
     principal, unconfirmed, provisional, differential, confirmed = [], [], [], [], []

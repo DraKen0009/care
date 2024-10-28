@@ -1,6 +1,11 @@
+from unittest.mock import patch
+
+from redis.exceptions import RedisError
+from redis_om.model.model import NotFoundError as RedisModelNotFoundError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from care.facility.models import ICD11Diagnosis
 from care.utils.tests.test_utils import TestUtils
 
 
@@ -53,4 +58,44 @@ class TestICD11Api(TestUtils, APITestCase):
 
     def test_get_icd11_by_invalid_id(self):
         res = self.client.get("/api/v1/icd/invalid/")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ID must be an integer.", res.json())
+
+        res = self.client.get("/api/v1/icd/0/")
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn(
+            "Diagnosis with the specified ID not found.", res.json()["detail"]
+        )
+
+    @patch("care.facility.static_data.icd11.ICD11.get")
+    def test_retrieve_diagnosis_not_found_in_redis_and_db(self, mock_redis_get):
+        mock_redis_get.side_effect = RedisModelNotFoundError(
+            "Diagnosis not found in Redis"
+        )
+
+        with patch.object(
+            ICD11Diagnosis.objects, "get", side_effect=ICD11Diagnosis.DoesNotExist
+        ):
+            response = self.client.get("/api/v1/icd/123/")
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+            self.assertEqual(
+                response.json()["detail"], "Diagnosis with the specified ID not found."
+            )
+
+    @patch("care.facility.static_data.icd11.ICD11.get")
+    def test_retrieve_redis_connection_error(self, mock_redis_get):
+        mock_redis_get.side_effect = RedisError("Redis connection issue")
+
+        response = self.client.get("/api/v1/icd/123/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.json()["detail"], "Redis connection issue encountered."
+        )
+
+    @patch("care.facility.static_data.icd11.ICD11.get")
+    def test_retrieve_unexpected_error(self, mock_redis_get):
+        mock_redis_get.side_effect = Exception("Unexpected error")
+
+        response = self.client.get("/api/v1/icd/123/")
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.json()["detail"], "Internal Server Error")

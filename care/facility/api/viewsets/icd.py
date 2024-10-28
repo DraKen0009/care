@@ -1,5 +1,5 @@
-from django.http import Http404
 from redis_om import FindQuery
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
@@ -11,11 +11,25 @@ class ICDViewSet(ViewSet):
     def serialize_data(self, objects: list[ICD11]):
         return [diagnosis.get_representation() for diagnosis in objects]
 
-    def retrieve(self, request, pk):
-        obj = get_icd11_diagnosis_object_by_id(pk, as_dict=True)
-        if not obj:
-            raise Http404
-        return Response(obj)
+    def retrieve(self, request, pk: int):
+        try:
+            pk = int(pk)
+        except ValueError as err:
+            raise ValidationError(detail="ID must be an integer.") from err
+
+        diagnosis, error = get_icd11_diagnosis_object_by_id(pk, as_dict=True)
+
+        if error == "Diagnosis with the specified ID not found.":
+            raise NotFound(detail=error)
+        if error == "Redis connection issue encountered.":
+            exception = APIException(error)
+            exception.status_code = 400
+            raise exception
+        if error:
+            err = "Internal Server Error"
+            raise APIException(err)
+
+        return Response(diagnosis)
 
     def list(self, request):
         try:
