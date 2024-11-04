@@ -10,6 +10,8 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from care.utils.jwks.token_generator import generate_jwt
 
+from .schema import meta_object_schema
+
 
 class ActionParams(TypedDict, total=False):
     type: str
@@ -21,10 +23,6 @@ class BaseAssetIntegration:
     auth_header_type = "Care_Bearer "
 
     def __init__(self, meta):
-        from care.utils.schema import (
-            meta_object_schema,  # Lazy import to avoid circular import issues
-        )
-
         try:
             meta["_name"] = self._name
             jsonschema.validate(instance=meta, schema=meta_object_schema)
