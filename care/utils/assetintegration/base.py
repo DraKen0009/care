@@ -66,12 +66,14 @@ class BaseAssetIntegration:
                 {"error": "Invalid Response"}, response.status_code
             ) from e
 
-    def api_post(self, url, data=None, timeout=self.timeout):
+    def api_post(self, url, data=None, timeout=None):
+        timeout = timeout or self.timeout
         return self._validate_response(
             requests.post(url, json=data, headers=self.get_headers(), timeout=timeout)
         )
 
-    def api_get(self, url, data=None, timeout=self.timeout):
+    def api_get(self, url, data=None, timeout=None):
+        timeout = timeout or self.timeout
         return self._validate_response(
             requests.get(url, params=data, headers=self.get_headers(), timeout=timeout)
         )
