@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
 from care.facility.static_data.icd11 import ICD11, get_icd11_diagnosis_object_by_id
+from care.utils.exceptions import ICD11DiagnosisNotFoundError, ICD11RedisConnectionError
 from care.utils.static_data.helpers import query_builder
 
 
@@ -17,19 +18,23 @@ class ICDViewSet(ViewSet):
         except ValueError as err:
             raise ValidationError(detail="ID must be an integer.") from err
 
-        diagnosis, error = get_icd11_diagnosis_object_by_id(pk, as_dict=True)
+        try:
+            diagnosis = get_icd11_diagnosis_object_by_id(pk, as_dict=True)
+            return Response(diagnosis)
 
-        if error == "Diagnosis with the specified ID not found.":
-            raise NotFound(detail=error)
-        if error == "Redis connection issue encountered.":
-            exception = APIException(error)
+        except ICD11DiagnosisNotFoundError as e:
+            error_message = e.message
+            raise NotFound(detail=error_message) from e
+
+        except ICD11RedisConnectionError as e:
+            error_message = e.message
+            exception = APIException(error_message)
             exception.status_code = 400
-            raise exception
-        if error:
-            err = "Internal Server Error"
-            raise APIException(err)
+            raise exception from e
 
-        return Response(diagnosis)
+        except Exception as e:
+            error_message = "Internal Server Error"
+            raise APIException(error_message) from e
 
     def list(self, request):
         try:

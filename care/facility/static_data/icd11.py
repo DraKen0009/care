@@ -8,6 +8,7 @@ from redis_om import Field, Migrator
 from redis_om.model.model import NotFoundError as RedisModelNotFoundError
 
 from care.facility.models.icd11_diagnosis import ICD11Diagnosis
+from care.utils.exceptions import ICD11DiagnosisNotFoundError, ICD11RedisConnectionError
 from care.utils.static_data.models.base import BaseRedisModel
 
 logger = logging.getLogger(__name__)
@@ -59,14 +60,14 @@ def load_icd11_diagnosis():
 
 def get_icd11_diagnosis_object_by_id(
     diagnosis_id: int, as_dict=False
-) -> tuple[ICD11 | ICD11Object | None, str | None]:
+) -> ICD11 | ICD11Object | None:
     """
     Retrieves ICD11 diagnosis by ID with Redis lookup and DB fallback.
-    Returns a tuple: (diagnosis_data, error_message)
+    Returns the diagnosis data or raises a custom exception on error.
     """
     try:
         diagnosis = ICD11.get(diagnosis_id)
-        return diagnosis.get_representation() if as_dict else diagnosis, None
+        return diagnosis.get_representation() if as_dict else diagnosis
 
     except RedisModelNotFoundError:
         try:
@@ -80,20 +81,23 @@ def get_icd11_diagnosis_object_by_id(
                 vec=diagnosis.label.replace(".", "\\.", 1),
             )
             icd11_obj.save()
-            return icd11_obj.get_representation() if as_dict else icd11_obj, None
+            return icd11_obj.get_representation() if as_dict else icd11_obj
 
-        except ICD11Diagnosis.DoesNotExist:
-            return None, "Diagnosis with the specified ID not found."
+        except ICD11Diagnosis.DoesNotExist as e:
+            error_message = "Diagnosis with the specified ID not found."
+            raise ICD11DiagnosisNotFoundError(error_message) from e
 
-    except RedisError:
-        return None, "Redis connection issue encountered."
+    except RedisError as e:
+        error_message = "Redis connection issue encountered."
+        raise ICD11RedisConnectionError(error_message) from e
 
     except Exception as e:
         logger.error(
             "An unexpected error occurred while retrieving the diagnosis. Details - %s",
             e,
         )
-        return None, "An unexpected error occurred while retrieving the diagnosis."
+        error_message = "Internal Server Error"
+        raise Exception(error_message) from e
 
 
 def get_icd11_diagnoses_objects_by_ids(diagnoses_ids: list[int]) -> list[ICD11Object]:
