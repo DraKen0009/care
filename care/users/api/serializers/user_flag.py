@@ -10,4 +10,4 @@ class UserFlagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserFlag
-        exclude = ["external_id", "deleted", "modified_date"]
+        exclude = ["external_id", "deleted", "modified_date", "created_date"]

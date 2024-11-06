@@ -10,4 +10,4 @@ class FacilityFlagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FacilityFlag
-        exclude = ["external_id", "deleted", "modified_date"]
+        exclude = ["external_id", "deleted", "modified_date", "created_date"]
