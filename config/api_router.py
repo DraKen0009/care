@@ -40,6 +40,7 @@ from care.facility.api.viewsets.facility import (
     FacilityViewSet,
 )
 from care.facility.api.viewsets.facility_capacity import FacilityCapacityViewSet
+from care.facility.api.viewsets.facility_flag import FacilityFlagViewSet
 from care.facility.api.viewsets.facility_users import FacilityUserViewSet
 from care.facility.api.viewsets.file_upload import FileUploadViewSet
 from care.facility.api.viewsets.hospital_doctor import HospitalDoctorViewSet
@@ -101,6 +102,7 @@ from care.users.api.viewsets.lsg import (
 )
 from care.users.api.viewsets.plug_config import PlugConfigViewset
 from care.users.api.viewsets.skill import SkillViewSet
+from care.users.api.viewsets.user_flag import UserFlagViewSet
 from care.users.api.viewsets.users import UserViewSet
 from care.users.api.viewsets.userskill import UserSkillViewSet
 
@@ -314,6 +316,9 @@ consultation_nested_router.register(
 router.register("event_types", EventTypeViewSet, basename="event-types")
 
 router.register("medibase", MedibaseViewSet, basename="medibase")
+
+router.register(r"facility_flags", FacilityFlagViewSet, basename="facility-flags")
+router.register(r"user_flags", UserFlagViewSet, basename="user-flags")
 
 # Public endpoints
 router.register("public/asset", AssetPublicViewSet, basename="public-asset")
