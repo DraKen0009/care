@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from care.users.models import UserFlag
 from care.utils.registries.feature_flag import FlagRegistry, FlagType
 from care.utils.tests.test_utils import TestUtils
 
@@ -49,11 +50,20 @@ class UserFlagsViewSetTestCase(TestUtils, APITestCase):
     def test_create_user_flag(self):
         self.client.force_authenticate(user=self.super_user)
 
+        response = self.client.post(self.get_url(), {})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("This field is required.", response.json()["flag"])
+        self.assertIn("This field is required.", response.json()["user"])
+
         # Attempting to create a duplicate flag
         response = self.client.post(
             self.get_url(), {"flag": "TEST_FLAG", "user": self.user.external_id}
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "The fields user, flag must make a unique set.",
+            response.json()["non_field_errors"],
+        )
 
         # Creating a new user flag
         response = self.client.post(
@@ -108,6 +118,22 @@ class UserFlagsViewSetTestCase(TestUtils, APITestCase):
         self.user_flag_1.refresh_from_db()
         self.assertEqual(self.user_flag_1.flag, "TEST_FLAG")
         self.assertEqual(self.user_flag_1.user.external_id, self.user_2.external_id)
+
+    def test_delete_user_flag(self):
+        self.client.force_authenticate(user=self.super_user)
+
+        # Confirm if the object exist
+        self.assertTrue(
+            UserFlag.objects.filter(external_id=self.user_flag_1.external_id).exists()
+        )
+
+        response = self.client.delete(self.get_url(self.user_flag_1.external_id))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.user_flag_1.refresh_from_db()
+        self.assertFalse(
+            UserFlag.objects.filter(external_id=self.user_flag_1.external_id).exists()
+        )
 
     def test_creating_user_flag_with_non_existing_flag(self):
         self.client.force_authenticate(user=self.super_user)

@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from care.facility.models import FacilityFlag
 from care.utils.registries.feature_flag import FlagRegistry, FlagType
 from care.utils.tests.test_utils import TestUtils
 
@@ -51,11 +52,20 @@ class FacilityFlagsViewSetTestCase(TestUtils, APITestCase):
     def test_create_facility_flag(self):
         self.client.force_authenticate(user=self.super_user)
 
+        response = self.client.post(self.get_url(), {})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("This field is required.", response.json()["flag"])
+        self.assertIn("This field is required.", response.json()["facility"])
+
         # Attempting to create a duplicate flag
         response = self.client.post(
             self.get_url(), {"flag": "TEST_FLAG", "facility": self.facility.external_id}
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "The fields facility, flag must make a unique set.",
+            response.json()["non_field_errors"],
+        )
 
         # Creating a new facility flag
         response = self.client.post(
@@ -114,6 +124,25 @@ class FacilityFlagsViewSetTestCase(TestUtils, APITestCase):
         self.assertEqual(self.facility_flag_1.flag, "TEST_FLAG")
         self.assertEqual(
             self.facility_flag_1.facility.external_id, self.facility2.external_id
+        )
+
+    def test_delete_facility_flag(self):
+        self.client.force_authenticate(user=self.super_user)
+
+        # Confirm if the object exist
+        self.assertTrue(
+            FacilityFlag.objects.filter(
+                external_id=self.facility_flag_1.external_id
+            ).exists()
+        )
+        response = self.client.delete(self.get_url(self.facility_flag_1.external_id))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.facility_flag_1.refresh_from_db()
+        self.assertFalse(
+            FacilityFlag.objects.filter(
+                external_id=self.facility_flag_1.external_id
+            ).exists()
         )
 
     def test_creating_facility_flag_with_non_existing_flag(self):
