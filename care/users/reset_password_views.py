@@ -170,7 +170,7 @@ class ResetPasswordConfirm(GenericAPIView):
                 )
             except ValidationError as e:
                 # raise a validation error for the serializer
-                raise exceptions.ValidationError({"password": e.messages})
+                raise exceptions.ValidationError({"password": e.messages}) from e
 
             reset_password_token.user.set_password(password)
             reset_password_token.user.save()
@@ -208,6 +208,20 @@ class ResetPasswordRequestToken(GenericAPIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
+        if settings.IS_PRODUCTION and (
+            not settings.EMAIL_HOST
+            or not settings.EMAIL_HOST_USER
+            or not settings.EMAIL_HOST_PASSWORD
+        ):
+            raise exceptions.ValidationError(
+                {
+                    "detail": [
+                        _(
+                            "There was a problem resetting your password. Please contact the administrator."
+                        )
+                    ]
+                }
+            )
         # before we continue, delete all existing expired tokens
         password_reset_token_validation_time = get_password_reset_token_expiry_time()
 
@@ -221,7 +235,7 @@ class ResetPasswordRequestToken(GenericAPIView):
 
         # find a user
         users = User.objects.filter(
-            **{"{}__exact".format(get_password_reset_lookup_field()): username}
+            **{f"{get_password_reset_lookup_field()}__exact": username}
         )
 
         active_user_found = False

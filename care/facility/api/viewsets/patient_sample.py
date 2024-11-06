@@ -76,10 +76,7 @@ class PatientSampleViewSet(
         )
         .order_by("-id")
     )
-    permission_classes = (
-        IsAuthenticated,
-        DRYPermissions,
-    )
+    permission_classes = (IsAuthenticated, DRYPermissions)
     filter_backends = (
         PatientSampleFilterBackend,
         filters.DjangoFilterBackend,
@@ -96,7 +93,7 @@ class PatientSampleViewSet(
         return serializer_class
 
     def get_queryset(self):
-        queryset = super(PatientSampleViewSet, self).get_queryset()
+        queryset = super().get_queryset()
         if self.kwargs.get("patient_external_id") is not None:
             queryset = queryset.filter(
                 patient__external_id=self.kwargs.get("patient_external_id")
@@ -121,18 +118,20 @@ class PatientSampleViewSet(
             not self.kwargs.get("patient_external_id")
             and request.user.user_type < User.TYPE_VALUE_MAP["Doctor"]
         ):
-            raise PermissionDenied()
+            raise PermissionDenied
 
         if settings.CSV_REQUEST_PARAMETER in request.GET:
-            queryset = self.filter_queryset(self.get_queryset()).values(
-                *PatientSample.CSV_MAPPING.keys()
+            queryset = (
+                self.filter_queryset(self.get_queryset())
+                .annotate(**PatientSample.CSV_ANNOTATE_FIELDS)
+                .values(*PatientSample.CSV_MAPPING.keys())
             )
             return render_to_csv_response(
                 queryset,
                 field_header_map=PatientSample.CSV_MAPPING,
                 field_serializer_map=PatientSample.CSV_MAKE_PRETTY,
             )
-        return super(PatientSampleViewSet, self).list(request, *args, **kwargs)
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         validated_data = serializer.validated_data

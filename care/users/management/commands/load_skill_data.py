@@ -10,13 +10,14 @@ class Command(BaseCommand):
 
     help = "Seed Data for Skills"
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **kwargs):
         self.stdout.write("Seeding Skills Data... ", ending="")
 
         skills = [
             "Anesthesiologist",
             "Cardiac Surgeon",
             "Cardiologist",
+            "Dentist",
             "Dermatologist",
             "Diabetologist",
             "Emergency Medicine Physician",
@@ -25,8 +26,12 @@ class Command(BaseCommand):
             "Gastroenterologist",
             "General Medicine",
             "General Surgeon",
+            "Geriatrician",
             "Hematologist",
+            "Immunologist",
+            "Infectious Disease Specialist",
             "Intensivist",
+            "MBBS doctor",
             "Medical Officer",
             "Nephrologist",
             "Neuro Surgeon",
@@ -35,12 +40,14 @@ class Command(BaseCommand):
             "Oncologist",
             "Oncology Surgeon",
             "Ophthalmologist",
+            "Oral and Maxillofacial Surgeon",
             "Orthopedic",
             "Orthopedic Surgeon",
             "Otolaryngologist (ENT)",
             "Pediatrician",
             "Palliative care Physician",
             "Pathologist",
+            "Pediatric Surgeon",
             "Physician",
             "Plastic Surgeon",
             "Psychiatrist",
@@ -48,7 +55,9 @@ class Command(BaseCommand):
             "Radio technician",
             "Radiologist",
             "Rheumatologist",
+            "Sports Medicine Specialist",
             "Thoraco-Vascular Surgeon",
+            "Transfusion Medicine Specialist",
             "Urologist",
         ]
 

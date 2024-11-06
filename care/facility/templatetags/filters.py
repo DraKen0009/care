@@ -22,12 +22,14 @@ def suggestion_string(suggestion_code: str):
 
 @register.filter()
 def field_name_to_label(value):
-    return value.replace("_", " ").capitalize()
+    if value:
+        return value.replace("_", " ").capitalize()
+    return None
 
 
 @register.filter(expects_localtime=True)
 def parse_datetime(value):
     try:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M")
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M")  # noqa: DTZ007
     except ValueError:
         return None

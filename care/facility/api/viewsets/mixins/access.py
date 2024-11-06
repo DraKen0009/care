@@ -1,11 +1,11 @@
 from care.facility.models.mixins.permissions.asset import DRYAssetPermissions
 from care.users.models import User
-from config.authentication import MiddlewareAuthentication
+from config.authentication import MiddlewareAssetAuthentication
 
 
 class UserAccessMixin:
     def get_queryset(self):
-        queryset = self.queryset
+        queryset = super().get_queryset()
         model = self.queryset.__dict__["model"]
 
         if not self.request.user.is_superuser:
@@ -17,9 +17,8 @@ class UserAccessMixin:
                     queryset = queryset.filter(
                         facility__district=self.request.user.district
                     )
-            else:
-                if hasattr(instance, "created_by"):
-                    queryset = queryset.filter(created_by=self.request.user)
+            elif hasattr(instance, "created_by"):
+                queryset = queryset.filter(created_by=self.request.user)
         return queryset
 
     def filter_by_user_scope(self, queryset):
@@ -34,9 +33,8 @@ class UserAccessMixin:
                     queryset = queryset.filter(
                         facility__district=self.request.user.district
                     )
-            else:
-                if hasattr(instance, "created_by"):
-                    queryset = queryset.filter(created_by=self.request.user)
+            elif hasattr(instance, "created_by"):
+                queryset = queryset.filter(created_by=self.request.user)
         return queryset
 
     def perform_create(self, serializer):
@@ -55,7 +53,7 @@ class AssetUserAccessMixin:
     asset_permissions = (DRYAssetPermissions,)
 
     def get_authenticators(self):
-        return [MiddlewareAuthentication()] + super().get_authenticators()
+        return [MiddlewareAssetAuthentication(), *super().get_authenticators()]
 
     def get_permissions(self):
         """

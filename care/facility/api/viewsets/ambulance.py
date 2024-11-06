@@ -1,5 +1,5 @@
 from django_filters import rest_framework as filters
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.mixins import (
@@ -9,7 +9,6 @@ from rest_framework.mixins import (
     RetrieveModelMixin,
     UpdateModelMixin,
 )
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -44,11 +43,11 @@ class AmbulanceViewSet(
     UserAccessMixin,
     RetrieveModelMixin,
     ListModelMixin,
+    CreateModelMixin,
     UpdateModelMixin,
     DestroyModelMixin,
     GenericViewSet,
 ):
-    permission_classes = (IsAuthenticated,)
     serializer_class = AmbulanceSerializer
     queryset = Ambulance.objects.filter(deleted=False).select_related(
         "primary_district", "secondary_district", "third_district"
@@ -59,13 +58,13 @@ class AmbulanceViewSet(
     def get_serializer_class(self):
         if self.action == "add_driver":
             return AmbulanceDriverSerializer
-        elif self.action == "remove_driver":
+        if self.action == "remove_driver":
             return DeleteDriverSerializer
         return AmbulanceSerializer
 
     @extend_schema(tags=["ambulance"])
     @action(methods=["POST"], detail=True)
-    def add_driver(self, request):
+    def add_driver(self, request, *args, **kwargs):
         ambulance = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,7 +77,7 @@ class AmbulanceViewSet(
 
     @extend_schema(tags=["ambulance"])
     @action(methods=["DELETE"], detail=True)
-    def remove_driver(self, request):
+    def remove_driver(self, request, *args, **kwargs):
         ambulance = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -91,12 +90,3 @@ class AmbulanceViewSet(
 
         driver.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-@extend_schema_view(create=extend_schema(tags=["ambulance"]))
-class AmbulanceCreateViewSet(CreateModelMixin, GenericViewSet):
-    permission_classes = (IsAuthenticated,)
-    serializer_class = AmbulanceSerializer
-    queryset = Ambulance.objects.filter(deleted=False)
-    filter_backends = (filters.DjangoFilterBackend,)
-    filterset_class = AmbulanceFilterSet

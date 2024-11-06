@@ -11,9 +11,7 @@
         }
       },
       "portMappings": [],
-      "command": [
-        "/app/celery_beat-ecs.sh"
-      ],
+      "command": ["/app/celery_beat-ecs.sh"],
       "cpu": 128,
       "environment": [
         {
@@ -31,6 +29,10 @@
         {
           "name": "CURRENT_DOMAIN",
           "value": "https://care.ohc.network"
+        },
+        {
+          "name": "BACKEND_DOMAIN",
+          "value": "https://careapi.ohc.network"
         },
         {
           "name": "DJANGO_ADMIN_URL",
@@ -93,28 +95,20 @@
           "value": "True"
         },
         {
-          "name": "ENABLE_ABDM",
-          "value": "True"
-        },
-        {
-          "name": "ABDM_URL",
+          "name": "ABDM_GATEWAY_URL",
           "value": "https://dev.abdm.gov.in"
         },
         {
-          "name": "HEALTH_SERVICE_API_URL",
-          "value": "https://healthidsbx.abdm.gov.in/api"
+          "name": "ABDM_ABHA_URL",
+          "value": "https://abhasbx.abdm.gov.in"
         },
         {
           "name": "ABDM_FACILITY_URL",
           "value": "https://facilitysbx.abdm.gov.in"
         },
         {
-          "name": "X_CM_ID",
+          "name": "ABDM_CM_ID",
           "value": "sbx"
-        },
-        {
-          "name": "FIDELIUS_URL",
-          "value": "https://fidelius.ohc.network"
         },
         {
           "name": "SENTRY_TRACES_SAMPLE_RATE",
@@ -253,6 +247,10 @@
           "name": "HCX_IG_URL"
         },
         {
+          "valueFrom": "/care/backend/HCX_CERT_URL",
+          "name": "HCX_CERT_URL"
+        },
+        {
           "valueFrom": "/care/backend/PLAUSIBLE_HOST",
           "name": "PLAUSIBLE_HOST"
         },
@@ -271,6 +269,10 @@
         {
           "valueFrom": "/care/backend/ABDM_CLIENT_SECRET",
           "name": "ABDM_CLIENT_SECRET"
+        },
+        {
+          "valueFrom": "/care/backend/JWKS_BASE64",
+          "name": "JWKS_BASE64"
         }
       ],
       "name": "care-celery-beat"
@@ -284,9 +286,7 @@
           "awslogs-stream-prefix": "ecs"
         }
       },
-      "command": [
-        "/app/celery_worker-ecs.sh"
-      ],
+      "command": ["/app/celery_worker-ecs.sh"],
       "cpu": 384,
       "memory": 1536,
       "memoryReservation": 1536,
@@ -306,6 +306,10 @@
         {
           "name": "CURRENT_DOMAIN",
           "value": "https://care.ohc.network"
+        },
+        {
+          "name": "BACKEND_DOMAIN",
+          "value": "https://careapi.ohc.network"
         },
         {
           "name": "DJANGO_ADMIN_URL",
@@ -368,24 +372,20 @@
           "value": "True"
         },
         {
-          "name": "ENABLE_ABDM",
-          "value": "True"
-        },
-        {
-          "name": "ABDM_URL",
+          "name": "ABDM_GATEWAY_URL",
           "value": "https://dev.abdm.gov.in"
         },
         {
-          "name": "HEALTH_SERVICE_API_URL",
-          "value": "https://healthidsbx.abdm.gov.in/api"
+          "name": "ABDM_ABHA_URL",
+          "value": "https://abhasbx.abdm.gov.in"
         },
         {
-          "name": "X_CM_ID",
+          "name": "ABDM_FACILITY_URL",
+          "value": "https://facilitysbx.abdm.gov.in"
+        },
+        {
+          "name": "ABDM_CM_ID",
           "value": "sbx"
-        },
-        {
-          "name": "FIDELIUS_URL",
-          "value": "https://fidelius.ohc.network"
         },
         {
           "name": "SENTRY_TRACES_SAMPLE_RATE",
@@ -522,6 +522,10 @@
           "name": "HCX_IG_URL"
         },
         {
+          "valueFrom": "/care/backend/HCX_CERT_URL",
+          "name": "HCX_CERT_URL"
+        },
+        {
           "valueFrom": "/care/backend/PLAUSIBLE_HOST",
           "name": "PLAUSIBLE_HOST"
         },
@@ -540,6 +544,10 @@
         {
           "valueFrom": "/care/backend/ABDM_CLIENT_SECRET",
           "name": "ABDM_CLIENT_SECRET"
+        },
+        {
+          "valueFrom": "/care/backend/JWKS_BASE64",
+          "name": "JWKS_BASE64"
         }
       ],
       "name": "care-celery-worker"

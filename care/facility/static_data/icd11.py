@@ -1,12 +1,15 @@
+import logging
 import re
 from typing import TypedDict
 
 from django.core.paginator import Paginator
 from redis_om import Field, Migrator
-from redis_om.model.model import NotFoundError as RedisModelNotFoundError
 
 from care.facility.models.icd11_diagnosis import ICD11Diagnosis
 from care.utils.static_data.models.base import BaseRedisModel
+
+logger = logging.getLogger(__name__)
+
 
 DISEASE_CODE_PATTERN = r"^(?:[A-Z]+\d|\d+[A-Z])[A-Z\d.]*\s"
 
@@ -19,20 +22,22 @@ class ICD11Object(TypedDict):
 
 class ICD11(BaseRedisModel):
     id: int = Field(primary_key=True)
-    label: str = Field(index=True, full_text_search=True)
-    chapter: str
+    label: str
+    chapter: str = Field(index=True)
     has_code: int = Field(index=True)
+
+    vec: str = Field(index=True, full_text_search=True)
 
     def get_representation(self) -> ICD11Object:
         return {
             "id": self.id,
             "label": self.label,
-            "chapter": self.chapter,
+            "chapter": self.chapter if self.chapter != "null" else "",
         }
 
 
 def load_icd11_diagnosis():
-    print("Loading ICD11 Diagnosis into the redis cache...", end="", flush=True)
+    logger.info("Loading ICD11 Diagnosis into the redis cache...")
 
     icd_objs = ICD11Diagnosis.objects.order_by("id").values_list(
         "id", "label", "meta_chapter_short"
@@ -43,11 +48,12 @@ def load_icd11_diagnosis():
             ICD11(
                 id=diagnosis[0],
                 label=diagnosis[1],
-                chapter=diagnosis[2] or "",
+                chapter=diagnosis[2] or "null",
                 has_code=1 if re.match(DISEASE_CODE_PATTERN, diagnosis[1]) else 0,
+                vec=diagnosis[1].replace(".", "\\.", 1),
             ).save()
     Migrator().run()
-    print("Done")
+    logger.info("ICD11 Diagnosis Loaded")
 
 
 def get_icd11_diagnosis_object_by_id(
@@ -56,7 +62,7 @@ def get_icd11_diagnosis_object_by_id(
     try:
         diagnosis = ICD11.get(diagnosis_id)
         return diagnosis.get_representation() if as_dict else diagnosis
-    except RedisModelNotFoundError:
+    except Exception:
         return None
 
 

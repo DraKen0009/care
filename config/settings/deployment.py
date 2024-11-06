@@ -1,19 +1,22 @@
+import base64
+import json
 import logging
 
 import sentry_sdk
+from authlib.jose import JsonWebKey
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger
 from sentry_sdk.integrations.redis import RedisIntegration
 
 from .base import *  # noqa
-from .base import env
+from .base import APP_VERSION, DATABASES, TEMPLATES, env
 
 # DATABASES
 # ------------------------------------------------------------------------------
-DATABASES["default"] = env.db("DATABASE_URL")  # noqa F405
-DATABASES["default"]["ATOMIC_REQUESTS"] = True  # noqa F405
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)  # noqa F405
+DATABASES["default"] = env.db("DATABASE_URL")
+DATABASES["default"]["ATOMIC_REQUESTS"] = True
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 
 # SECURITY
 # ------------------------------------------------------------------------------
@@ -41,11 +44,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool(
 )
 # https://github.com/adamchainz/django-cors-headers#cors_allowed_origins-sequencestr
 CORS_ALLOWED_ORIGINS = env.json("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ALLOWED_ORIGIN_REGEXES = env.json("CORS_ALLOWED_ORIGIN_REGEXES", default=[])
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#templates
-TEMPLATES[-1]["OPTIONS"]["loaders"] = [  # type: ignore[index] # noqa F405
+TEMPLATES[-1]["OPTIONS"]["loaders"] = [  # type: ignore[index]
     (
         "django.template.loaders.cached.Loader",
         [
@@ -98,12 +102,14 @@ LOGGING = {
 if SENTRY_DSN := env("SENTRY_DSN", default=""):
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        release=env("APP_VERSION", default="unknown"),
+        release=APP_VERSION,
         environment=env("SENTRY_ENVIRONMENT", default="deployment-unknown"),
         traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0),
         profiles_sample_rate=env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0),
         integrations=[
-            LoggingIntegration(event_level=logging.WARNING),
+            LoggingIntegration(
+                event_level=env.int("SENTRY_EVENT_LEVEL", default=logging.ERROR)
+            ),
             DjangoIntegration(),
             CeleryIntegration(monitor_beat_tasks=True),
             RedisIntegration(),
@@ -115,3 +121,6 @@ if SENTRY_DSN := env("SENTRY_DSN", default=""):
 SNS_ACCESS_KEY = env("SNS_ACCESS_KEY")
 SNS_SECRET_KEY = env("SNS_SECRET_KEY")
 SNS_REGION = "ap-south-1"
+
+# open id connect
+JWKS = JsonWebKey.import_key_set(json.loads(base64.b64decode(env("JWKS_BASE64"))))

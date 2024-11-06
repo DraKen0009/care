@@ -1,6 +1,6 @@
-import datetime
-
 from dateutil.relativedelta import relativedelta
+from django.utils import timezone
+from django.utils.timezone import now
 
 from care.facility.models import (
     DISEASE_CHOICES_MAP,
@@ -9,6 +9,7 @@ from care.facility.models import (
     PatientContactDetails,
     PatientRegistration,
     PatientSample,
+    Symptom,
 )
 
 
@@ -16,55 +17,18 @@ class PatientIcmr(PatientRegistration):
     class Meta:
         proxy = True
 
-    # @property
-    # def personal_details(self):
-    #     return self
-
-    # @property
-    # def specimen_details(self):
-    #     instance = self.patientsample_set.last()
-    #     if instance is not None:
-    #         instance.__class__ = PatientSampleICMR
-    #     return instance
-
-    # @property
-    # def patient_category(self):
-    #     instance = self.consultations.last()
-    #     if instance:
-    #         instance.__class__ = PatientConsultationICMR
-    #     return instance
-
-    # @property
-    # def exposure_history(self):
-    #     return self
-
-    # @property
-    # def medical_conditions(self):
-    #     instance = self.patientsample_set.last()
-    #     if instance is not None:
-    #         instance.__class__ = PatientSampleICMR
-    #     return instance
+    def get_age_delta(self):
+        start = self.date_of_birth or timezone.datetime(self.year_of_birth, 1, 1).date()
+        end = (self.death_datetime or timezone.now()).date()
+        return relativedelta(end, start)
 
     @property
-    def age_years(self):
-        if self.date_of_birth is not None:
-            age_years = relativedelta(datetime.datetime.now(), self.date_of_birth).years
-        else:
-            age_years = relativedelta(
-                datetime.datetime.now(),
-                datetime.datetime(year=self.year_of_birth, month=1, day=1),
-            ).years
-        return age_years
+    def age_years(self) -> int:
+        return self.get_age_delta().year
 
     @property
-    def age_months(self):
-        if self.date_of_birth is None or self.year_of_birth is None:
-            age_months = 0
-        else:
-            age_months = relativedelta(
-                datetime.datetime.now(), self.date_of_birth
-            ).months
-        return age_months
+    def age_months(self) -> int:
+        return self.get_age_delta().months
 
     @property
     def email(self):
@@ -84,12 +48,14 @@ class PatientIcmr(PatientRegistration):
 
     @property
     def has_travel_to_foreign_last_14_days(self):
+        unsafe_travel_days = 14
         if self.countries_travelled:
             return len(self.countries_travelled) != 0 and (
                 self.date_of_return
-                and (self.date_of_return.date() - datetime.datetime.now().date()).days
-                <= 14
+                and (self.date_of_return.date() - now().date()).days
+                <= unsafe_travel_days
             )
+        return None
 
     @property
     def travel_end_date(self):
@@ -194,19 +160,20 @@ class PatientSampleICMR(PatientSample):
 
     @property
     def symptoms(self):
-        return [
-            symptom
-            for symptom in self.consultation.symptoms
-            # if SYMPTOM_CHOICES[0][0] not in self.consultation.symptoms.choices.keys()
-        ]
+        symptoms = []
+        for symptom in self.consultation.symptoms:
+            if symptom == Symptom.OTHERS:
+                symptoms.append(self.consultation.other_symptoms)
+            else:
+                symptoms.append(symptom)
+
+        return symptoms
 
     @property
     def date_of_onset_of_symptoms(self):
-        return (
-            self.consultation.symptoms_onset_date.date()
-            if self.consultation and self.consultation.symptoms_onset_date
-            else None
-        )
+        if symptom := self.consultation.symptoms.first():
+            return symptom.onset_date.date()
+        return None
 
 
 class PatientConsultationICMR(PatientConsultation):
@@ -214,26 +181,22 @@ class PatientConsultationICMR(PatientConsultation):
         proxy = True
 
     def is_symptomatic(self):
-        if (
-            SYMPTOM_CHOICES[0][0] not in self.symptoms.choices.keys()
+        return bool(
+            SYMPTOM_CHOICES[0][0] not in self.symptoms.choices
             or self.symptoms_onset_date is not None
-        ):
-            return True
-        else:
-            return False
+        )
 
     def symptomatic_international_traveller(
         self,
     ):
+        unsafe_travel_days = 14
         return bool(
             self.patient.countries_travelled
             and len(self.patient.countries_travelled) != 0
             and (
                 self.patient.date_of_return
-                and (
-                    self.patient.date_of_return.date() - datetime.datetime.now().date()
-                ).days
-                <= 14
+                and (self.patient.date_of_return.date() - now().date()).days
+                <= unsafe_travel_days
             )
             and self.is_symptomatic()
         )

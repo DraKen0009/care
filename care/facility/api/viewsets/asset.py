@@ -1,6 +1,12 @@
+import logging
+import re
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Exists, OuterRef, Q, Subquery
+from django.db.models import CharField, Exists, F, OuterRef, Q, Subquery, Value
+from django.db.models.fields.json import KT
+from django.db.models.functions import Coalesce, NullIf
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.http import Http404
@@ -9,11 +15,10 @@ from django.utils import timezone
 from django_filters import rest_framework as filters
 from django_filters.constants import EMPTY_VALUES
 from djqscsv import render_to_csv_response
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from dry_rest_permissions.generics import DRYPermissions
-from rest_framework import exceptions
+from rest_framework import exceptions, status
 from rest_framework import filters as drf_filters
-from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.mixins import (
@@ -29,7 +34,9 @@ from rest_framework.serializers import UUIDField
 from rest_framework.viewsets import GenericViewSet
 
 from care.facility.api.serializers.asset import (
+    AssetConfigSerializer,
     AssetLocationSerializer,
+    AssetPublicSerializer,
     AssetSerializer,
     AssetServiceSerializer,
     AssetTransactionSerializer,
@@ -51,13 +58,21 @@ from care.facility.models.asset import (
     AvailabilityRecord,
     StatusChoices,
 )
+from care.facility.models.bed import AssetBed, ConsultationBed
 from care.users.models import User
 from care.utils.assetintegration.asset_classes import AssetClasses
-from care.utils.assetintegration.base import BaseAssetIntegration
 from care.utils.cache.cache_allowed_facilities import get_accessible_facilities
 from care.utils.filters.choicefilter import CareChoiceFilter, inverse_choices
+from care.utils.queryset.asset_bed import get_asset_queryset
 from care.utils.queryset.asset_location import get_asset_location_queryset
 from care.utils.queryset.facility import get_facility_queryset
+from config.authentication import MiddlewareAuthentication
+
+if TYPE_CHECKING:
+    from care.utils.assetintegration.base import BaseAssetIntegration
+
+logger = logging.getLogger(__name__)
+
 
 inverse_asset_type = inverse_choices(AssetTypeChoices)
 inverse_asset_status = inverse_choices(StatusChoices)
@@ -68,6 +83,27 @@ def delete_asset_cache(sender, instance, created, **kwargs):
     cache.delete("asset:" + str(instance.external_id))
     cache.delete("asset:qr:" + str(instance.qr_code_id))
     cache.delete("asset:qr:" + str(instance.id))
+
+
+class AssetLocationFilter(filters.FilterSet):
+    bed_is_occupied = filters.BooleanFilter(method="filter_bed_is_occupied")
+
+    def filter_bed_is_occupied(self, queryset, name, value):
+        asset_locations = (
+            AssetBed.objects.select_related("asset", "bed")
+            .filter(asset__asset_class=AssetClasses.HL7MONITOR.name)
+            .values_list("bed__location_id", "bed__id")
+        )
+        if value:
+            asset_locations = asset_locations.filter(
+                bed__id__in=Subquery(
+                    ConsultationBed.objects.filter(
+                        bed__id=OuterRef("bed__id"), end_date__isnull=value
+                    ).values("bed__id")
+                )
+            )
+        asset_locations = asset_locations.values_list("bed__location_id", flat=True)
+        return queryset.filter(id__in=asset_locations)
 
 
 class AssetLocationViewSet(
@@ -87,8 +123,9 @@ class AssetLocationViewSet(
     )
     serializer_class = AssetLocationSerializer
     lookup_field = "external_id"
-    filter_backends = (drf_filters.SearchFilter,)
+    filter_backends = (filters.DjangoFilterBackend, drf_filters.SearchFilter)
     search_fields = ["name"]
+    filterset_class = AssetLocationFilter
 
     def get_serializer_context(self):
         facility = self.get_facility()
@@ -125,9 +162,11 @@ class AssetLocationViewSet(
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.bed_set.filter(deleted=False).count():
-            raise ValidationError("Cannot delete a Location with associated Beds")
+            msg = "Cannot delete a Location with associated Beds"
+            raise ValidationError(msg)
         if instance.asset_set.filter(deleted=False).count():
-            raise ValidationError("Cannot delete a Location with associated Assets")
+            msg = "Cannot delete a Location with associated Assets"
+            raise ValidationError(msg)
 
         return super().destroy(request, *args, **kwargs)
 
@@ -181,8 +220,10 @@ class AssetFilter(filters.FilterSet):
 
 class AssetPublicViewSet(GenericViewSet):
     queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
+    serializer_class = AssetPublicSerializer
     lookup_field = "external_id"
+    permission_classes = ()
+    authentication_classes = ()
 
     def retrieve(self, request, *args, **kwargs):
         key = "asset:" + kwargs["external_id"]
@@ -199,8 +240,10 @@ class AssetPublicViewSet(GenericViewSet):
 
 class AssetPublicQRViewSet(GenericViewSet):
     queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
+    serializer_class = AssetPublicSerializer
     lookup_field = "qr_code_id"
+    permission_classes = ()
+    authentication_classes = ()
 
     def retrieve(self, request, *args, **kwargs):
         qr_code_id = kwargs["qr_code_id"]
@@ -221,7 +264,6 @@ class AssetPublicQRViewSet(GenericViewSet):
 class AvailabilityViewSet(ListModelMixin, RetrieveModelMixin, GenericViewSet):
     queryset = AvailabilityRecord.objects.all()
     serializer_class = AvailabilityRecordSerializer
-    permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
         facility_queryset = get_facility_queryset(self.request.user)
@@ -234,11 +276,9 @@ class AvailabilityViewSet(ListModelMixin, RetrieveModelMixin, GenericViewSet):
                     content_type__model="asset",
                     object_external_id=self.kwargs["asset_external_id"],
                 )
-            else:
-                raise exceptions.PermissionDenied(
-                    "You do not have access to this asset's availability records"
-                )
-        elif "asset_location_external_id" in self.kwargs:
+            msg = "You do not have access to this asset's availability records"
+            raise exceptions.PermissionDenied(msg)
+        if "asset_location_external_id" in self.kwargs:
             asset_location = get_object_or_404(
                 AssetLocation, external_id=self.kwargs["asset_location_external_id"]
             )
@@ -247,14 +287,10 @@ class AvailabilityViewSet(ListModelMixin, RetrieveModelMixin, GenericViewSet):
                     content_type__model="assetlocation",
                     object_external_id=self.kwargs["asset_location_external_id"],
                 )
-            else:
-                raise exceptions.PermissionDenied(
-                    "You do not have access to this asset location's availability records"
-                )
-        else:
-            raise exceptions.ValidationError(
-                "Either asset_external_id or asset_location_external_id is required"
-            )
+            msg = "You do not have access to this asset location's availability records"
+            raise exceptions.PermissionDenied(msg)
+        msg = "Either asset_external_id or asset_location_external_id is required"
+        raise exceptions.ValidationError(msg)
 
 
 class AssetViewSet(
@@ -274,26 +310,12 @@ class AssetViewSet(
     lookup_field = "external_id"
     filter_backends = (filters.DjangoFilterBackend, drf_filters.SearchFilter)
     search_fields = ["name", "serial_number", "qr_code_id"]
-    permission_classes = [IsAuthenticated]
+    permission_classes = (IsAuthenticated, DRYPermissions)
     filterset_class = AssetFilter
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = self.queryset
-        if user.is_superuser:
-            pass
-        elif user.user_type >= User.TYPE_VALUE_MAP["StateLabAdmin"]:
-            queryset = queryset.filter(current_location__facility__state=user.state)
-        elif user.user_type >= User.TYPE_VALUE_MAP["DistrictLabAdmin"]:
-            queryset = queryset.filter(
-                current_location__facility__district=user.district
-            )
-        else:
-            allowed_facilities = get_accessible_facilities(user)
-            queryset = queryset.filter(
-                current_location__facility__id__in=allowed_facilities
-            )
-        queryset = queryset.annotate(
+        queryset = get_asset_queryset(user=self.request.user, queryset=self.queryset)
+        return queryset.annotate(
             latest_status=Subquery(
                 AvailabilityRecord.objects.filter(
                     content_type__model="asset",
@@ -303,7 +325,6 @@ class AssetViewSet(
                 .values("status")[:1]
             )
         )
-        return queryset
 
     def list(self, request, *args, **kwargs):
         if settings.CSV_REQUEST_PARAMETER in request.GET:
@@ -314,16 +335,14 @@ class AssetViewSet(
                 queryset, field_header_map=mapping, field_serializer_map=pretty_mapping
             )
 
-        return super(AssetViewSet, self).list(request, *args, **kwargs)
+        return super().list(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         user = self.request.user
         if user.user_type >= User.TYPE_VALUE_MAP["DistrictAdmin"]:
             return super().destroy(request, *args, **kwargs)
-        else:
-            raise exceptions.AuthenticationFailed(
-                "Only District Admin and above can delete assets"
-            )
+        msg = "Only District Admin and above can delete assets"
+        raise exceptions.AuthenticationFailed(msg)
 
     @extend_schema(
         responses={200: UserDefaultAssetLocationSerializer()}, tags=["asset"]
@@ -382,6 +401,7 @@ class AssetViewSet(
             asset_class: BaseAssetIntegration = AssetClasses[asset.asset_class].value(
                 {
                     **asset.meta,
+                    "id": asset.external_id,
                     "middleware_hostname": middleware_hostname,
                 }
             )
@@ -406,11 +426,73 @@ class AssetViewSet(
             )
 
         except Exception as e:
-            print(f"error: {e}")
+            logger.info("Failed to operate asset: %s", e)
             return Response(
                 {"message": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class AssetRetrieveConfigViewSet(ListModelMixin, GenericViewSet):
+    queryset = Asset.objects.all()
+    authentication_classes = [MiddlewareAuthentication]
+    serializer_class = AssetConfigSerializer
+
+    @extend_schema(
+        tags=["asset"],
+        parameters=[
+            OpenApiParameter(
+                name="middleware_hostname",
+                location=OpenApiParameter.QUERY,
+            )
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        This API is used by the middleware to retrieve assets and their configurations
+        for a given facility and middleware hostname.
+        """
+        middleware_hostname = request.query_params.get("middleware_hostname")
+        if not middleware_hostname:
+            return Response(
+                {"middleware_hostname": "Middleware hostname is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if match := re.match(r"^(https?://)?([^\s/]+)/?$", middleware_hostname):
+            middleware_hostname = match.group(2)  # extract the hostname from the URL
+        else:
+            return Response(
+                {"middleware_hostname": "Invalid middleware hostname"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = (
+            self.get_queryset()
+            .filter(
+                current_location__facility=self.request.user.facility,
+                asset_class__in=[
+                    AssetClasses.ONVIF.name,
+                    AssetClasses.HL7MONITOR.name,
+                ],
+            )
+            .annotate(
+                resolved_middleware_hostname=Coalesce(
+                    NullIf(KT("meta__middleware_hostname"), Value("")),
+                    NullIf(F("current_location__middleware_address"), Value("")),
+                    F("current_location__facility__middleware_address"),
+                    output_field=CharField(),
+                )
+            )
+            .filter(resolved_middleware_hostname=middleware_hostname)
+            .exclude(
+                Q(meta__local_ip_address__isnull=True)
+                | Q(meta__local_ip_address__exact=""),
+            )
+        ).only("external_id", "meta", "description", "name", "asset_class")
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class AssetTransactionFilter(filters.FilterSet):
@@ -479,8 +561,6 @@ class AssetServiceViewSet(
         .order_by("-created_date")
     )
     serializer_class = AssetServiceSerializer
-
-    permission_classes = (IsAuthenticated,)
 
     lookup_field = "external_id"
 

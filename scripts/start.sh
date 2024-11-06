@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-printf "api" >> /tmp/container-role
+printf "api" > /tmp/container-role
 
 if [ -z "${DATABASE_URL}" ]; then
     export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
@@ -33,4 +33,6 @@ done
 python manage.py collectstatic --noinput
 
 export NEW_RELIC_CONFIG_FILE=/etc/newrelic.ini
+
+python manage.py compilemessages
 newrelic-admin run-program gunicorn config.wsgi:application --bind 0.0.0.0:9000 --chdir=/app

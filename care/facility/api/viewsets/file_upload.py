@@ -37,11 +37,10 @@ class FileUploadPermission(BasePermission):
                     "PATIENT",
                     "CONSULTATION",
                 )
-            else:
-                return request.data.get("file_type") not in (
-                    "PATIENT",
-                    "CONSULTATION",
-                )
+            return request.data.get("file_type") not in (
+                "PATIENT",
+                "CONSULTATION",
+            )
         return True
 
     def has_object_permission(self, request, view, obj) -> bool:
@@ -59,7 +58,7 @@ class FileUploadViewSet(
     queryset = (
         FileUpload.objects.all().select_related("uploaded_by").order_by("-created_date")
     )
-    permission_classes = [IsAuthenticated, FileUploadPermission]
+    permission_classes = (IsAuthenticated, FileUploadPermission)
     lookup_field = "external_id"
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = FileUploadFilter
@@ -67,12 +66,11 @@ class FileUploadViewSet(
     def get_serializer_class(self):
         if self.action == "retrieve":
             return FileUploadRetrieveSerializer
-        elif self.action == "list":
+        if self.action == "list":
             return FileUploadListSerializer
-        elif self.action == "create":
+        if self.action == "create":
             return FileUploadCreateSerializer
-        else:
-            return FileUploadUpdateSerializer
+        return FileUploadUpdateSerializer
 
     def get_queryset(self):
         if "file_type" not in self.request.GET:
@@ -83,13 +81,19 @@ class FileUploadViewSet(
                 {"associating_id": "associating_id missing in request params"}
             )
         file_type = self.request.GET["file_type"]
-        associating_id = self.request.GET["associating_id"]
+        associating_ids = self.request.GET["associating_id"].split(",")
         if file_type not in FileUpload.FileType.__members__:
             raise ValidationError({"file_type": "invalid file type"})
         file_type = FileUpload.FileType[file_type].value
-        associating_internal_id = check_permissions(
-            file_type, associating_id, self.request.user, "read"
-        )
+
+        associating_internal_ids = []
+
+        for associating_id in associating_ids:
+            associating_internal_id = check_permissions(
+                file_type, associating_id, self.request.user, "read"
+            )
+            associating_internal_ids.append(associating_internal_id)
+
         return self.queryset.filter(
-            file_type=file_type, associating_id=associating_internal_id
+            file_type=file_type, associating_id__in=associating_internal_ids
         )
