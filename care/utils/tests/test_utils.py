@@ -22,6 +22,7 @@ from care.facility.models import (
     DiseaseStatusEnum,
     EncounterSymptom,
     Facility,
+    FacilityFlag,
     InvestigationSession,
     InvestigationValue,
     LocalBody,
@@ -51,7 +52,7 @@ from care.facility.models.patient_consultation import (
     PatientCodeStatusType,
     PatientConsent,
 )
-from care.users.models import District, State
+from care.users.models import District, State, UserFlag
 
 fake = Faker()
 
@@ -727,6 +728,26 @@ class TestUtils:
         data = cls.get_prescription_data(consultation, user)
         data.update(**kwargs)
         return Prescription.objects.create(**data)
+
+    @classmethod
+    def create_facility_flag(
+        cls, flag: str, facility: Facility, **kwargs
+    ) -> FacilityFlag:
+        data = {
+            "facility": facility,
+            "flag": flag,
+        }
+        data.update(**kwargs)
+        return FacilityFlag.objects.create(**data)
+
+    @classmethod
+    def create_user_flag(cls, flag: str, user: User, **kwargs) -> UserFlag:
+        data = {
+            "user": user,
+            "flag": flag,
+        }
+        data.update(**kwargs)
+        return UserFlag.objects.create(**data)
 
     def get_list_representation(self, obj) -> dict:
         """
