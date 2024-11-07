@@ -7,7 +7,7 @@ from django.test import TestCase
 from care.facility.models import PatientInvestigation, PatientInvestigationGroup
 
 
-class LoadPrescriptionCommandTest(TestCase):
+class LoadInvestigationsCommandTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("populate_investigations", verbosity=0)
