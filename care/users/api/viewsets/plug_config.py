@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from care.users.api.serializers.plug_config import PLugConfigSerializer
+from care.users.api.serializers.plug_config import PlugConfigSerializer
 from care.users.models import PlugConfig
 
 
@@ -12,16 +12,15 @@ class PlugConfigViewset(
     GenericViewSet,
 ):
     lookup_field = "slug"
-    serializer_class = PLugConfigSerializer
+    serializer_class = PlugConfigSerializer
     queryset = PlugConfig.objects.all().order_by("slug")
     cache_key = "care_plug_viewset_list"
-    authentication_classes = []
 
     def list(self, request, *args, **kwargs):
         # Cache data and return
         response = cache.get(self.cache_key)
         if not response:
-            serializer = self.get_serializer(self.queryset, many=True)
+            serializer = self.get_serializer(self.get_queryset(), many=True)
             response = serializer.data
             cache.set(self.cache_key, response)
         return Response({"configs": response})
