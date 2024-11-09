@@ -1,4 +1,5 @@
 from enum import Enum
+from urllib.parse import quote
 
 from django.utils.timezone import now, timedelta
 from rest_framework import status
@@ -727,6 +728,160 @@ class PatientFilterTestCase(TestUtils, APITestCase):
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.json()["count"], 3)
+
+    def test_filter_by_invalid_params(self):
+        self.client.force_authenticate(user=self.user)
+
+        # name length > 200 words
+        invalid_name_param = "a" * 201
+        res = self.client.get(self.get_base_url() + f"?name={invalid_name_param}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 200 characters (it has 201).",
+            res.json()["name"],
+        )
+
+        # invalid gender choice
+        invalid_gender = 4
+        res = self.client.get(self.get_base_url() + f"?gender={invalid_gender}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Select a valid choice. 4 is not one of the available choices.",
+            res.json()["gender"],
+        )
+
+        # invalid value for age, age max , age min filter (i.e <0)
+        invalid_age = -2
+        res = self.client.get(self.get_base_url() + f"?age={invalid_age}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value is greater than or equal to 0.", res.json()["age"]
+        )
+
+        invalid_min_age = -2
+        res = self.client.get(self.get_base_url() + f"?age_min={invalid_min_age}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value is greater than or equal to 0.", res.json()["age_min"]
+        )
+
+        invalid_max_age = -2
+        res = self.client.get(self.get_base_url() + f"?age_max={invalid_max_age}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value is greater than or equal to 0.", res.json()["age_max"]
+        )
+
+        # invalid number_of_doses param >3 or <0
+        invalid_number_of_doses = -2
+        res = self.client.get(
+            self.get_base_url() + f"?number_of_doses={invalid_number_of_doses}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value is greater than or equal to 0.",
+            res.json()["number_of_doses"],
+        )
+
+        invalid_number_of_doses = 4
+        res = self.client.get(
+            self.get_base_url() + f"?number_of_doses={invalid_number_of_doses}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value is less than or equal to 3.",
+            res.json()["number_of_doses"],
+        )
+
+        # invalid srf id length > 200 words
+        invalid_srf_param = "a" * 201
+        res = self.client.get(self.get_base_url() + f"?srf_id={invalid_srf_param}")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 200 characters (it has 201).",
+            res.json()["srf_id"],
+        )
+
+        # invalid district_name length > 255 words
+        invalid_district_name_param = "a" * 256
+        res = self.client.get(
+            self.get_base_url() + f"?district_name={invalid_district_name_param}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 255 characters (it has 256).",
+            res.json()["district_name"],
+        )
+
+        # invalid local_body_name length > 255 words
+        invalid_local_body_name_param = "a" * 256
+        res = self.client.get(
+            self.get_base_url() + f"?local_body_name={invalid_local_body_name_param}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 255 characters (it has 256).",
+            res.json()["local_body_name"],
+        )
+
+        # invalid state_name length > 255 words
+        invalid_state_name_param = "a" * 256
+        res = self.client.get(
+            self.get_base_url() + f"?state_name={invalid_state_name_param}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 255 characters (it has 256).",
+            res.json()["state_name"],
+        )
+
+    def test_invalid_phone_params(self):
+        self.client.force_authenticate(user=self.user)
+
+        # invalid phone number (non Indian or non International)
+        invalid_phone_numbers = [
+            "9876543210",
+            "+9123456789",
+            "+915123456789",
+            "+9191234",
+            "+91765432abcd",
+            "00441234567890",
+            "+12345",
+            "+911234567890",
+            "+151234",
+            "+44-123-4567-890",
+            "+1-800-555-1212",
+            "+91 98765 43210",
+            "+91987654321000",
+            "+44 1234 567890",
+            "+123-456-7890",
+            "1234567890",
+            "+91-9876543210",
+            "+123456",
+        ]
+
+        for phone_number in invalid_phone_numbers:
+            encoded_phone_number = quote(phone_number)
+            res = self.client.get(
+                self.get_base_url() + f"?phone_number={encoded_phone_number}"
+            )
+            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn(
+                f"Invalid phone number. Must be one of the following types: mobile. Received: {phone_number}",
+                res.json()["phone_number"],
+            )
+
+        for emergency_phone_number in invalid_phone_numbers:
+            encoded_emergency_phone_number = quote(emergency_phone_number)
+            res = self.client.get(
+                self.get_base_url()
+                + f"?emergency_phone_number={encoded_emergency_phone_number}"
+            )
+            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn(
+                f"Invalid phone number. Must be one of the following types: mobile. Received: {emergency_phone_number}",
+                res.json()["emergency_phone_number"],
+            )
 
 
 class DischargePatientFilterTestCase(TestUtils, APITestCase):

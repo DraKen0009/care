@@ -3,6 +3,7 @@ from json import JSONDecodeError
 
 from django.conf import settings
 from django.contrib.postgres.search import TrigramSimilarity
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import (
     Case,
@@ -78,10 +79,11 @@ from care.facility.models.patient_base import (
     NewDischargeReasonEnum,
 )
 from care.facility.models.patient_consultation import PatientConsultation
-from care.users.models import User
+from care.users.models import GENDER_CHOICES, User
 from care.utils.cache.cache_allowed_facilities import get_accessible_facilities
 from care.utils.filters.choicefilter import CareChoiceFilter
 from care.utils.filters.multiselect import MultiSelectFilter
+from care.utils.models.validators import mobile_validator
 from care.utils.notification_handler import NotificationGenerator
 from care.utils.queryset.patient import get_patient_notes_queryset
 from config.authentication import (
@@ -105,17 +107,27 @@ class PatientFilterSet(filters.FilterSet):
         field_name="facility__facility_type",
         choice_dict=REVERSE_FACILITY_TYPES,
     )
-    phone_number = filters.CharFilter(field_name="phone_number")
-    emergency_phone_number = filters.CharFilter(field_name="emergency_phone_number")
+    phone_number = filters.CharFilter(
+        field_name="phone_number", validators=[mobile_validator]
+    )
+    emergency_phone_number = filters.CharFilter(
+        field_name="emergency_phone_number", validators=[mobile_validator]
+    )
     allow_transfer = filters.BooleanFilter(field_name="allow_transfer")
-    name = filters.CharFilter(field_name="name", lookup_expr="icontains")
+    name = filters.CharFilter(
+        field_name="name", lookup_expr="icontains", max_length=200
+    )
     patient_no = filters.CharFilter(
         field_name=f"{last_consultation_field}__patient_no", lookup_expr="iexact"
     )
-    gender = filters.NumberFilter(field_name="gender")
-    age = filters.NumberFilter(field_name="age")
-    age_min = filters.NumberFilter(field_name="age", lookup_expr="gte")
-    age_max = filters.NumberFilter(field_name="age", lookup_expr="lte")
+    gender = filters.ChoiceFilter(field_name="gender", choices=GENDER_CHOICES)
+    age = filters.NumberFilter(field_name="age", validators=[MinValueValidator(0)])
+    age_min = filters.NumberFilter(
+        field_name="age", lookup_expr="gte", validators=[MinValueValidator(0)]
+    )
+    age_max = filters.NumberFilter(
+        field_name="age", lookup_expr="lte", validators=[MinValueValidator(0)]
+    )
     deprecated_covid_category = filters.ChoiceFilter(
         field_name=f"{last_consultation_field}__deprecated_covid_category",
         choices=COVID_CATEGORY_CHOICES,
@@ -142,7 +154,7 @@ class PatientFilterSet(filters.FilterSet):
 
     created_date = filters.DateFromToRangeFilter(field_name="created_date")
     modified_date = filters.DateFromToRangeFilter(field_name="modified_date")
-    srf_id = filters.CharFilter(field_name="srf_id")
+    srf_id = filters.CharFilter(field_name="srf_id", max_length=200)
     is_declared_positive = filters.BooleanFilter(field_name="is_declared_positive")
     date_declared_positive = filters.DateFromToRangeFilter(
         field_name="date_declared_positive"
@@ -160,14 +172,16 @@ class PatientFilterSet(filters.FilterSet):
     # Location Based Filtering
     district = filters.NumberFilter(field_name="district__id")
     district_name = filters.CharFilter(
-        field_name="district__name", lookup_expr="icontains"
+        field_name="district__name", lookup_expr="icontains", max_length=255
     )
     local_body = filters.NumberFilter(field_name="local_body__id")
     local_body_name = filters.CharFilter(
-        field_name="local_body__name", lookup_expr="icontains"
+        field_name="local_body__name", lookup_expr="icontains", max_length=255
     )
     state = filters.NumberFilter(field_name="state__id")
-    state_name = filters.CharFilter(field_name="state__name", lookup_expr="icontains")
+    state_name = filters.CharFilter(
+        field_name="state__name", lookup_expr="icontains", max_length=255
+    )
     # Consultation Fields
     is_kasp = filters.BooleanFilter(field_name=f"{last_consultation_field}__is_kasp")
     last_consultation_kasp_enabled_date = filters.DateFromToRangeFilter(
@@ -226,9 +240,12 @@ class PatientFilterSet(filters.FilterSet):
     )
 
     # Vaccination Filters
-    covin_id = filters.CharFilter(field_name="covin_id")
+    covin_id = filters.CharFilter(field_name="covin_id", max_length=15)
     is_vaccinated = filters.BooleanFilter(field_name="is_vaccinated")
-    number_of_doses = filters.NumberFilter(field_name="number_of_doses")
+    number_of_doses = filters.NumberFilter(
+        field_name="number_of_doses",
+        validators=[MinValueValidator(0), MaxValueValidator(3)],
+    )
     # Permission Filters
     assigned_to = filters.NumberFilter(field_name="assigned_to")
     # Other Filters
