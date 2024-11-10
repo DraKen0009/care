@@ -858,6 +858,8 @@ class PatientFilterTestCase(TestUtils, APITestCase):
             "1234567890",
             "+91-9876543210",
             "+123456",
+            "+000000000000",
+            "+9876543210123456",
         ]
 
         for phone_number in invalid_phone_numbers:
