@@ -118,7 +118,9 @@ class PatientFilterSet(filters.FilterSet):
         field_name="name", lookup_expr="icontains", max_length=200
     )
     patient_no = filters.CharFilter(
-        field_name=f"{last_consultation_field}__patient_no", lookup_expr="iexact"
+        field_name=f"{last_consultation_field}__patient_no",
+        lookup_expr="iexact",
+        max_length=100,
     )
     gender = filters.ChoiceFilter(field_name="gender", choices=GENDER_CHOICES)
     age = filters.NumberFilter(field_name="age", validators=[MinValueValidator(0)])

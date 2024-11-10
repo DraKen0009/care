@@ -835,6 +835,17 @@ class PatientFilterTestCase(TestUtils, APITestCase):
             res.json()["state_name"],
         )
 
+        # invalid patient no value > 100
+        invalid_patient_no_param = "A" * 101
+        res = self.client.get(
+            self.get_base_url() + f"?patient_no={invalid_patient_no_param}"
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "Ensure this value has at most 100 characters (it has 101).",
+            res.json()["patient_no"],
+        )
+
     def test_invalid_phone_params(self):
         self.client.force_authenticate(user=self.user)
 
