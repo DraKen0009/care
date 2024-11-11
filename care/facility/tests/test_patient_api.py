@@ -1,5 +1,4 @@
 from enum import Enum
-from urllib.parse import quote
 
 from django.utils.timezone import now, timedelta
 from rest_framework import status
@@ -857,56 +856,6 @@ class PatientFilterTestCase(TestUtils, APITestCase):
             "Ensure this value has at most 15 characters (it has 16).",
             res.json()["covin_id"],
         )
-
-    def test_invalid_phone_params(self):
-        self.client.force_authenticate(user=self.user)
-
-        # invalid phone number (non Indian or non International)
-        invalid_phone_numbers = [
-            "9876543210",
-            "+9123456789",
-            "+915123456789",
-            "+9191234",
-            "+91765432abcd",
-            "00441234567890",
-            "+12345",
-            "+911234567890",
-            "+151234",
-            "+44-123-4567-890",
-            "+1-800-555-1212",
-            "+91 98765 43210",
-            "+91987654321000",
-            "+44 1234 567890",
-            "+123-456-7890",
-            "1234567890",
-            "+91-9876543210",
-            "+123456",
-            "+000000000000",
-            "+9876543210123456",
-        ]
-
-        for phone_number in invalid_phone_numbers:
-            encoded_phone_number = quote(phone_number)
-            res = self.client.get(
-                self.get_base_url() + f"?phone_number={encoded_phone_number}"
-            )
-            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-            self.assertIn(
-                f"Invalid phone number. Must be one of the following types: mobile. Received: {phone_number}",
-                res.json()["phone_number"],
-            )
-
-        for emergency_phone_number in invalid_phone_numbers:
-            encoded_emergency_phone_number = quote(emergency_phone_number)
-            res = self.client.get(
-                self.get_base_url()
-                + f"?emergency_phone_number={encoded_emergency_phone_number}"
-            )
-            self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-            self.assertIn(
-                f"Invalid phone number. Must be one of the following types: mobile. Received: {emergency_phone_number}",
-                res.json()["emergency_phone_number"],
-            )
 
 
 class DischargePatientFilterTestCase(TestUtils, APITestCase):

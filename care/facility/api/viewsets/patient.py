@@ -83,7 +83,6 @@ from care.users.models import GENDER_CHOICES, User
 from care.utils.cache.cache_allowed_facilities import get_accessible_facilities
 from care.utils.filters.choicefilter import CareChoiceFilter
 from care.utils.filters.multiselect import MultiSelectFilter
-from care.utils.models.validators import mobile_validator
 from care.utils.notification_handler import NotificationGenerator
 from care.utils.queryset.patient import get_patient_notes_queryset
 from config.authentication import (
@@ -107,12 +106,8 @@ class PatientFilterSet(filters.FilterSet):
         field_name="facility__facility_type",
         choice_dict=REVERSE_FACILITY_TYPES,
     )
-    phone_number = filters.CharFilter(
-        field_name="phone_number", validators=[mobile_validator]
-    )
-    emergency_phone_number = filters.CharFilter(
-        field_name="emergency_phone_number", validators=[mobile_validator]
-    )
+    phone_number = filters.CharFilter(field_name="phone_number")
+    emergency_phone_number = filters.CharFilter(field_name="emergency_phone_number")
     allow_transfer = filters.BooleanFilter(field_name="allow_transfer")
     name = filters.CharFilter(
         field_name="name", lookup_expr="icontains", max_length=200
