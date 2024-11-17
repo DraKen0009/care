@@ -33,9 +33,6 @@ from care.facility.models.asset import (
 )
 from care.users.api.serializers.user import UserBaseMinimumSerializer
 from care.utils.assetintegration.asset_classes import AssetClasses
-from care.utils.assetintegration.hl7monitor import HL7MonitorAsset
-from care.utils.assetintegration.onvif import OnvifAsset
-from care.utils.assetintegration.ventilator import VentilatorAsset
 from care.utils.models.validators import MiddlewareDomainAddressValidator
 from care.utils.queryset.facility import get_facility_queryset
 from care.utils.serializers.fields import ChoiceField
@@ -217,6 +214,9 @@ class AssetSerializer(ModelSerializer):
                 or current_location.facility.middleware_address
             )
             if ip_address and middleware_hostname:
+                valid_asset_classes = [AssetClasses.HL7MONITOR.name]
+                if hasattr(AssetClasses, "ONVIF"):
+                    valid_asset_classes.append(AssetClasses.ONVIF.name)
                 asset_using_ip = (
                     Asset.objects.annotate(
                         resolved_middleware_hostname=Coalesce(
@@ -229,10 +229,7 @@ class AssetSerializer(ModelSerializer):
                         )
                     )
                     .filter(
-                        asset_class__in=[
-                            AssetClasses.ONVIF.name,
-                            AssetClasses.HL7MONITOR.name,
-                        ],
+                        asset_class__in=valid_asset_classes,
                         current_location__facility=current_location.facility_id,
                         resolved_middleware_hostname=middleware_hostname,
                         meta__local_ip_address=ip_address,
@@ -407,19 +404,11 @@ class UserDefaultAssetLocationSerializer(ModelSerializer):
 
 
 class AssetActionSerializer(Serializer):
-    def action_choices():
-        actions = [
-            OnvifAsset.OnvifActions,
-            HL7MonitorAsset.HL7MonitorActions,
-            VentilatorAsset.VentilatorActions,
-        ]
-        choices = []
-        for action in actions:
-            choices += [(e.value, e.name) for e in action]
-        return choices
-
+    choices = []
+    for asset_class in AssetClasses.all():
+        choices.append(asset_class.value.get_action_choices())
     type = ChoiceField(
-        choices=action_choices(),
+        choices=choices,
         required=True,
     )
     data = JSONField(required=False)

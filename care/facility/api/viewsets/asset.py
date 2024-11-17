@@ -73,7 +73,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 inverse_asset_type = inverse_choices(AssetTypeChoices)
 inverse_asset_status = inverse_choices(StatusChoices)
 
@@ -201,20 +200,13 @@ class AssetFilter(filters.FilterSet):
 
     def filter_is_permanent(self, queryset, _, value):
         if value not in EMPTY_VALUES:
+            valid_asset_classes = [AssetClasses.HL7MONITOR.name]
+            if hasattr(AssetClasses, "ONVIF"):
+                valid_asset_classes.append(AssetClasses.ONVIF.name)
             if value:
-                queryset = queryset.filter(
-                    asset_class__in=[
-                        AssetClasses.ONVIF.name,
-                        AssetClasses.HL7MONITOR.name,
-                    ]
-                )
+                queryset = queryset.filter(asset_class__in=valid_asset_classes)
             else:
-                queryset = queryset.exclude(
-                    asset_class__in=[
-                        AssetClasses.ONVIF.name,
-                        AssetClasses.HL7MONITOR.name,
-                    ]
-                )
+                queryset = queryset.exclude(asset_class__in=valid_asset_classes)
         return queryset.distinct()
 
 
@@ -398,6 +390,15 @@ class AssetViewSet(
                 or asset.current_location.middleware_address
                 or asset.current_location.facility.middleware_address
             )
+            available_asset_classes = [asset.name for asset in AssetClasses.all()]
+            if asset.asset_class not in available_asset_classes:
+                Response(
+                    {
+                        "error": f"Install {asset.asset_class}'s plugins to use it",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             asset_class: BaseAssetIntegration = AssetClasses[asset.asset_class].value(
                 {
                     **asset.meta,
@@ -467,14 +468,15 @@ class AssetRetrieveConfigViewSet(ListModelMixin, GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        valid_asset_classes = [AssetClasses.HL7MONITOR.name]
+        if hasattr(AssetClasses, "ONVIF"):
+            valid_asset_classes.append(AssetClasses.ONVIF.name)
+
         queryset = (
             self.get_queryset()
             .filter(
                 current_location__facility=self.request.user.facility,
-                asset_class__in=[
-                    AssetClasses.ONVIF.name,
-                    AssetClasses.HL7MONITOR.name,
-                ],
+                asset_class__in=valid_asset_classes,
             )
             .annotate(
                 resolved_middleware_hostname=Coalesce(

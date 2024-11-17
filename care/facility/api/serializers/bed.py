@@ -115,10 +115,12 @@ class AssetBedSerializer(ModelSerializer):
                 raise ValidationError(
                     {"non_field_errors": "Asset is already linked to bed"}
                 )
-            if asset.asset_class not in [
-                AssetClasses.HL7MONITOR.name,
-                AssetClasses.ONVIF.name,
-            ]:
+
+            in_valid_asset_classes = [AssetClasses.HL7MONITOR.name]
+            if hasattr(AssetClasses, "ONVIF"):
+                in_valid_asset_classes.append(AssetClasses.ONVIF.name)
+
+            if asset.asset_class not in in_valid_asset_classes:
                 raise ValidationError({"asset": "Asset is not a monitor or camera"})
             attrs["asset"] = asset
             attrs["bed"] = bed
@@ -309,6 +311,9 @@ class ConsultationBedSerializer(ModelSerializer):
             if assets_ids := validated_data.pop("assets", None):
                 # we check assets in use here as they might have been in use in
                 # the previous bed
+                exclude_asset_classes = [AssetClasses.HL7MONITOR.name]
+                if hasattr(AssetClasses, "ONVIF"):
+                    exclude_asset_classes.append(AssetClasses.ONVIF.name)
                 assets = (
                     Asset.objects.annotate(
                         is_in_use=Exists(
@@ -324,12 +329,7 @@ class ConsultationBedSerializer(ModelSerializer):
                         external_id__in=assets_ids,
                         current_location__facility=consultation.facility_id,
                     )
-                    .exclude(
-                        asset_class__in=[
-                            AssetClasses.HL7MONITOR.name,
-                            AssetClasses.ONVIF.name,
-                        ]
-                    )
+                    .exclude(asset_class__in=exclude_asset_classes)
                     .values_list("external_id", flat=True)
                 )
                 not_found_assets = set(assets_ids) - set(assets)

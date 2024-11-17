@@ -37,3 +37,9 @@ class VentilatorAsset(BaseAssetIntegration):
             )
 
         raise ValidationError({"action": "invalid action type"})
+
+    @classmethod
+    def get_action_choices(cls):
+        choices = []
+        choices += [(e.value, e.name) for e in cls.VentilatorActions]
+        return choices

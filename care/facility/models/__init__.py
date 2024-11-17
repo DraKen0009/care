@@ -4,7 +4,6 @@ from .patient_base import *  # noqa  # isort:skip
 from .ambulance import *  # noqa
 from .asset import *  # noqa
 from .bed import *  # noqa
-from .camera_preset import *  # noqa
 from .daily_round import *  # noqa
 from .encounter_symptom import *  # noqa
 from .events import *  # noqa

@@ -61,3 +61,7 @@ class BaseAssetIntegration:
                 url, params=data, headers=self.get_headers(), timeout=self.timeout
             )
         )
+
+    @classmethod
+    def get_action_choices(cls):
+        pass

@@ -1,19 +1,19 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from care.camera_plugin.models.camera_position_preset import CameraPositionPreset
 from care.facility.api.serializers.bed import AssetBedSerializer
-from care.facility.models import CameraPreset
 from care.users.api.serializers.user import UserBaseMinimumSerializer
 
 
-class CameraPresetSerializer(serializers.ModelSerializer):
+class CameraPositionPresetSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(source="external_id", read_only=True)
     created_by = UserBaseMinimumSerializer(read_only=True)
     updated_by = UserBaseMinimumSerializer(read_only=True)
     asset_bed = AssetBedSerializer(read_only=True)
 
     class Meta:
-        model = CameraPreset
+        model = CameraPositionPreset
         exclude = (
             "external_id",
             "deleted",
@@ -32,7 +32,7 @@ class CameraPresetSerializer(serializers.ModelSerializer):
         )
 
     def validate_name(self, value):
-        if CameraPreset.objects.filter(
+        if CameraPositionPreset.objects.filter(
             asset_bed__bed_id=self.get_asset_bed_obj().bed_id, name=value
         ).exists():
             msg = "Name should be unique. Another preset related to this bed already uses the same name."

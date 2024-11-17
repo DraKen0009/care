@@ -4,8 +4,10 @@ from rest_framework.mixins import ListModelMixin
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from care.facility.api.serializers.camera_preset import CameraPresetSerializer
-from care.facility.models import CameraPreset
+from care.camera_plugin.api.serializers.camera_position_preset import (
+    CameraPositionPresetSerializer,
+)
+from care.camera_plugin.models.camera_position_preset import CameraPositionPreset
 from care.utils.queryset.asset_bed import (
     get_asset_bed_queryset,
     get_asset_queryset,
@@ -13,9 +15,9 @@ from care.utils.queryset.asset_bed import (
 )
 
 
-class AssetBedCameraPresetViewSet(ModelViewSet):
-    serializer_class = CameraPresetSerializer
-    queryset = CameraPreset.objects.all().select_related(
+class AssetBedCameraPositionPresetViewSet(ModelViewSet):
+    serializer_class = CameraPositionPresetSerializer
+    queryset = CameraPositionPreset.objects.all().select_related(
         "asset_bed", "created_by", "updated_by"
     )
     lookup_field = "external_id"
@@ -36,9 +38,9 @@ class AssetBedCameraPresetViewSet(ModelViewSet):
         return context
 
 
-class CameraPresetViewSet(GenericViewSet, ListModelMixin):
-    serializer_class = CameraPresetSerializer
-    queryset = CameraPreset.objects.all().select_related(
+class CameraPresetPositionViewSet(GenericViewSet, ListModelMixin):
+    serializer_class = CameraPositionPresetSerializer
+    queryset = CameraPositionPreset.objects.all().select_related(
         "asset_bed", "created_by", "updated_by"
     )
     lookup_field = "external_id"
