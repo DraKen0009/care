@@ -27,8 +27,8 @@ class AssetBedCameraPresetViewSetTestCase(TestUtils, APITestCase):
             cls.asset_location, asset_class=AssetClasses.ONVIF.name
         )
         cls.bed = cls.create_bed(cls.facility, cls.asset_location)
-        cls.asset_bed1 = cls.create_asset_bed(cls.asset1, cls.bed)
-        cls.asset_bed2 = cls.create_asset_bed(cls.asset2, cls.bed)
+        cls.asset_bed1 = cls.create_assetbed(cls.bed, cls.asset1)
+        cls.asset_bed2 = cls.create_assetbed(cls.bed, cls.asset2)
 
     def get_base_url(self, asset_bed_id=None):
         return f"/api/v1/assetbed/{asset_bed_id or self.asset_bed1.external_id}/camera_presets/"

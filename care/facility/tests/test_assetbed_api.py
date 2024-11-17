@@ -2,7 +2,6 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from care.facility.models import AssetBed, Bed
-from care.users.models import User
 from care.utils.assetintegration.asset_classes import AssetClasses
 from care.utils.tests.test_utils import TestUtils
 
@@ -45,13 +44,6 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
             name="bed1", location=cls.asset_location1, facility=cls.facility
         )
         cls.asset_location2 = cls.create_asset_location(cls.facility)
-        # camera asset
-        cls.asset2 = cls.create_asset(
-            cls.asset_location2, asset_class=AssetClasses.ONVIF.name
-        )
-        cls.bed2 = Bed.objects.create(
-            name="bed2", location=cls.asset_location2, facility=cls.facility
-        )
         cls.asset_location3 = cls.create_asset_location(cls.facility)
         cls.asset3 = cls.create_asset(
             cls.asset_location3, asset_class=AssetClasses.VENTILATOR.name
@@ -71,7 +63,6 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
             facility=cls.facility2,
         )
 
-        cls.create_assetbed(bed=cls.bed2, asset=cls.asset2)
         cls.create_assetbed(bed=cls.bed3, asset=cls.asset3)
 
         # assetbed for different facility
@@ -86,7 +77,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
 
     def get_url(self, external_id=None):
         """
-        Constructs the url for ambulance api
+        Constructs the url for assetbed api
         """
         base_url = f"{self.get_base_url()}/"
         if external_id is not None:
@@ -97,7 +88,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         # assetbed accessible to facility 1 user (current user)
         response = self.client.get(self.get_url())
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(response.data["count"], 2)
 
         # logging in as foreign user
         self.client.force_login(self.foreign_user)
@@ -220,10 +211,10 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        # Trying to create a duplicate assetbed with bed2 and asset2 (assetbed already exist with same bed and asset)
+        # Trying to create a duplicate assetbed with bed3 and asset3 (assetbed already exists)
         duplicate_asset_class_data = {
-            "asset": str(self.asset2.external_id),  # asset2 is already assigned to bed2
-            "bed": str(self.bed2.external_id),
+            "asset": str(self.asset3.external_id),
+            "bed": str(self.bed3.external_id),
         }
         response = self.client.post(
             self.get_url(), duplicate_asset_class_data, format="json"
@@ -261,7 +252,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         )
 
         invalid_updated_data = {
-            "asset": self.asset2.external_id,
+            "asset": self.asset3.external_id,
             "meta": {"sample_data": "sample value"},
         }
         response = self.client.put(
@@ -272,7 +263,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         invalid_updated_data = {
-            "bed": self.bed2.external_id,
+            "bed": self.bed3.external_id,
             "meta": {"sample_data": "sample value"},
         }
         response = self.client.put(
@@ -284,7 +275,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
 
         updated_data = {
             "bed": self.bed4.external_id,
-            "asset": self.asset2.external_id,
+            "asset": self.asset1.external_id,
             "meta": {"sample_data": "sample value"},
         }
         response = self.client.put(
@@ -297,7 +288,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         self.assetbed.refresh_from_db()
 
         self.assertEqual(self.assetbed.bed.external_id, self.bed4.external_id)
-        self.assertEqual(self.assetbed.asset.external_id, self.asset2.external_id)
+        self.assertEqual(self.assetbed.asset.external_id, self.asset1.external_id)
         self.assertEqual(self.assetbed.meta, {"sample_data": "sample value"})
 
     def test_patch_assetbed(self):
@@ -313,7 +304,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         )
 
         invalid_updated_data = {
-            "asset": self.asset2.external_id,
+            "asset": self.asset3.external_id,
             "meta": {"sample_data": "sample value"},
         }
         response = self.client.patch(
@@ -336,7 +327,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
 
         updated_data = {
             "bed": self.bed4.external_id,
-            "asset": self.asset2.external_id,
+            "asset": self.asset1.external_id,
         }
 
         response = self.client.patch(
@@ -349,7 +340,7 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         self.assetbed.refresh_from_db()
 
         self.assertEqual(self.assetbed.bed.external_id, self.bed4.external_id)
-        self.assertEqual(self.assetbed.asset.external_id, self.asset2.external_id)
+        self.assertEqual(self.assetbed.asset.external_id, self.asset1.external_id)
 
     def test_delete_assetbed(self):
         # confirming that the object exist
@@ -370,162 +361,3 @@ class AssetBedViewSetTests(TestUtils, APITestCase):
         self.assertFalse(
             AssetBed.objects.filter(external_id=self.assetbed.external_id).exists()
         )
-
-    def test_linking_multiple_cameras_to_a_bed(self):
-        # We already have camera linked(asset2) to bed2
-        # Attempt linking another camera to same bed.
-        new_camera_asset = self.create_asset(
-            self.asset_location2, asset_class=AssetClasses.ONVIF.name
-        )
-        data = {
-            "bed": self.bed2.external_id,
-            "asset": new_camera_asset.external_id,
-        }
-        res = self.client.post(self.get_url(), data, format="json")
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-
-    def test_linking_multiple_hl7_monitors_to_a_bed(self):
-        # We already have hl7 monitor linked(asset1) to bed1)
-        # Attempt linking another hl7 monitor to same bed.
-        new_hl7_monitor_asset = self.create_asset(
-            self.asset_location2, asset_class=AssetClasses.HL7MONITOR.name
-        )
-        data = {
-            "bed": self.bed1.external_id,
-            "asset": new_hl7_monitor_asset.external_id,
-        }
-        res = self.client.post("/api/v1/assetbed/", data, format="json")
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-class AssetBedCameraPresetViewSetTestCase(TestUtils, APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.state = cls.create_state()
-        cls.district = cls.create_district(cls.state)
-        cls.local_body = cls.create_local_body(cls.district)
-        cls.super_user = cls.create_super_user("su", cls.district)
-        cls.facility = cls.create_facility(cls.super_user, cls.district, cls.local_body)
-        cls.user = cls.create_user(
-            User.TYPE_VALUE_MAP["DistrictAdmin"],
-            cls.district,
-            home_facility=cls.facility,
-        )
-        cls.asset_location = cls.create_asset_location(cls.facility)
-        cls.asset1 = cls.create_asset(
-            cls.asset_location, asset_class=AssetClasses.ONVIF.name
-        )
-        cls.asset2 = cls.create_asset(
-            cls.asset_location, asset_class=AssetClasses.ONVIF.name
-        )
-        cls.bed = cls.create_bed(cls.facility, cls.asset_location)
-        cls.asset_bed1 = cls.create_assetbed(cls.bed, cls.asset1)
-        cls.asset_bed2 = cls.create_assetbed(cls.bed, cls.asset2)
-
-    def get_base_url(self, asset_bed_id=None):
-        return f"/api/v1/assetbed/{asset_bed_id or self.asset_bed1.external_id}/camera_presets/"
-
-    def test_create_camera_preset_without_position(self):
-        res = self.client.post(
-            self.get_base_url(),
-            {
-                "name": "Preset without position",
-                "position": {},
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_camera_preset_with_missing_required_keys_in_position(self):
-        res = self.client.post(
-            self.get_base_url(),
-            {
-                "name": "Preset with invalid position",
-                "position": {"key": "value"},
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_camera_preset_with_position_not_number(self):
-        res = self.client.post(
-            self.get_base_url(),
-            {
-                "name": "Preset with invalid position",
-                "position": {
-                    "x": "not a number",
-                    "y": 1,
-                    "zoom": 1,
-                },
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_camera_preset_with_position_values_as_string(self):
-        res = self.client.post(
-            self.get_base_url(),
-            {
-                "name": "Preset with invalid position",
-                "position": {
-                    "x": "1",
-                    "y": "1",
-                    "zoom": "1",
-                },
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_camera_preset_and_presence_in_various_preset_list_apis(self):
-        asset_bed = self.asset_bed1
-        res = self.client.post(
-            self.get_base_url(asset_bed.external_id),
-            {
-                "name": "Preset with proper position",
-                "position": {
-                    "x": 1.0,
-                    "y": 1.0,
-                    "zoom": 1.0,
-                },
-            },
-            format="json",
-        )
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        preset_external_id = res.data["id"]
-
-        # Check if preset in asset-bed preset list
-        res = self.client.get(self.get_base_url(asset_bed.external_id))
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertContains(res, preset_external_id)
-
-        # Check if preset in asset preset list
-        res = self.client.get(
-            f"/api/v1/asset/{asset_bed.asset.external_id}/camera_presets/"
-        )
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertContains(res, preset_external_id)
-
-        # Check if preset in bed preset list
-        res = self.client.get(
-            f"/api/v1/bed/{asset_bed.bed.external_id}/camera_presets/"
-        )
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertContains(res, preset_external_id)
-
-    def test_create_camera_preset_with_same_name_in_same_bed(self):
-        data = {
-            "name": "Duplicate Preset Name",
-            "position": {
-                "x": 1.0,
-                "y": 1.0,
-                "zoom": 1.0,
-            },
-        }
-        self.client.post(
-            self.get_base_url(self.asset_bed1.external_id), data, format="json"
-        )
-        res = self.client.post(
-            self.get_base_url(self.asset_bed2.external_id), data, format="json"
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
