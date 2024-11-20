@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task
-def check_asset_status():  # noqa: PLR0912
+def check_asset_status():
     logger.info("Checking Asset Status: %s", timezone.now())
 
     assets = (
@@ -70,28 +70,8 @@ def check_asset_status():  # noqa: PLR0912
                     }
                 )
                 # Fetching the status of the device
-                if asset.asset_class == "ONVIF":
-                    try:
-                        # TODO: Remove this block after all assets are migrated to the new middleware
-                        asset_config = asset.meta["camera_access_key"].split(":")
-                        assets_config = [
-                            {
-                                "hostname": asset.meta.get("local_ip_address"),
-                                "port": 80,
-                                "username": asset_config[0],
-                                "password": asset_config[1],
-                            }
-                        ]
+                result = asset_class.get_asset_status()
 
-                        result = asset_class.api_post(
-                            asset_class.get_url("cameras/status"), data=assets_config
-                        )
-                    except Exception:
-                        result = asset_class.api_get(
-                            asset_class.get_url("cameras/status")
-                        )
-                else:
-                    result = asset_class.api_get(asset_class.get_url("devices/status"))
             except Exception as e:
                 logger.warning("Middleware %s is down: %s", resolved_middleware, e)
 

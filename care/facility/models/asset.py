@@ -7,14 +7,17 @@ from django.db.models import JSONField, Q
 
 from care.facility.models import reverse_choices
 from care.facility.models.facility import Facility
-from care.facility.models.json_schema.asset import ASSET_META
+from care.facility.models.json_schema.asset import get_dynamic_asset_meta
 from care.facility.models.mixins.permissions.facility import (
     FacilityRelatedPermissionMixin,
 )
 from care.users.models import User
 from care.utils.assetintegration.asset_classes import AssetClasses
 from care.utils.models.base import BaseModel
-from care.utils.models.validators import JSONFieldSchemaValidator, PhoneNumberValidator
+from care.utils.models.validators import (
+    DynamicJSONFieldSchemaValidator,
+    PhoneNumberValidator,
+)
 
 
 def get_random_asset_id():
@@ -62,8 +65,6 @@ class AssetType(enum.Enum):
 
 AssetTypeChoices = [(e.value, e.name) for e in AssetType]
 
-AssetClassChoices = [(e.name, e.value._name) for e in AssetClasses]  # noqa: SLF001
-
 
 class Status(enum.Enum):
     ACTIVE = 50
@@ -83,7 +84,10 @@ class Asset(BaseModel):
         choices=AssetTypeChoices, default=AssetType.INTERNAL.value
     )
     asset_class = models.CharField(
-        choices=AssetClassChoices, default=None, null=True, blank=True, max_length=20
+        max_length=20,
+        blank=True,
+        null=True,
+        default=None,
     )
     status = models.IntegerField(choices=StatusChoices, default=Status.ACTIVE.value)
     current_location = models.ForeignKey(
@@ -94,7 +98,9 @@ class Asset(BaseModel):
     serial_number = models.CharField(max_length=1024, blank=True, null=True)
     warranty_details = models.TextField(null=True, blank=True, default="")  # Deprecated
     meta = JSONField(
-        default=dict, blank=True, validators=[JSONFieldSchemaValidator(ASSET_META)]
+        default=dict,
+        blank=True,
+        validators=[DynamicJSONFieldSchemaValidator(get_dynamic_asset_meta)],
     )
     # Vendor Details
     vendor_name = models.CharField(max_length=1024, blank=True, null=True)
@@ -136,7 +142,6 @@ class Asset(BaseModel):
         "last_service__serviced_on": "Last Service Date",
         "last_service__note": "Notes",
         "meta__local_ip_address": "Config - IP Address",
-        "meta__camera_access_key": "Config: Camera Access Key",
     }
 
     CSV_MAKE_PRETTY = {
@@ -198,6 +203,23 @@ class Asset(BaseModel):
 
     def has_object_read_permission(self, request):
         return self.has_read_permission(request)
+
+    @staticmethod
+    def get_asset_class_choices():
+        """
+        Dynamically fetch choices from the registered AssetClasses.
+        """
+        return [e.name for e in AssetClasses.all()]
+
+    def save(self, *args, **kwargs):
+        """
+        Validate the asset_class field against dynamically fetched choices.
+        """
+        valid_choices = self.get_asset_class_choices()
+        if self.asset_class and self.asset_class not in valid_choices:
+            error = f"'{self.asset_class}' is not a valid asset class."
+            raise ValueError(error)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

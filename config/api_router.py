@@ -321,5 +321,4 @@ urlpatterns = [
     path("", include(consultation_nested_router.urls)),
     path("", include(resource_nested_router.urls)),
     path("", include(shifting_nested_router.urls)),
-    path("", include("care.camera_plugin.urls")),
 ]

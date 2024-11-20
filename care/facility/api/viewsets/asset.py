@@ -201,13 +201,13 @@ class AssetFilter(filters.FilterSet):
 
     def filter_is_permanent(self, queryset, _, value):
         if value not in EMPTY_VALUES:
-            valid_asset_classes = [AssetClasses.HL7MONITOR.name]
-            if hasattr(AssetClasses, "ONVIF"):
-                valid_asset_classes.append(AssetClasses.ONVIF.name)
+            movable_assets = [
+                member.name for member in AssetClasses.all() if not member.is_movable
+            ]
             if value:
-                queryset = queryset.filter(asset_class__in=valid_asset_classes)
+                queryset = queryset.filter(asset_class__in=movable_assets)
             else:
-                queryset = queryset.exclude(asset_class__in=valid_asset_classes)
+                queryset = queryset.exclude(asset_class__in=movable_assets)
         return queryset.distinct()
 
 
@@ -467,16 +467,15 @@ class AssetRetrieveConfigViewSet(ListModelMixin, GenericViewSet):
                 {"middleware_hostname": "Invalid middleware hostname"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        valid_asset_classes = [AssetClasses.HL7MONITOR.name]
-        if hasattr(AssetClasses, "ONVIF"):
-            valid_asset_classes.append(AssetClasses.ONVIF.name)
-
         queryset = (
             self.get_queryset()
             .filter(
                 current_location__facility=self.request.user.facility,
-                asset_class__in=valid_asset_classes,
+                asset_class__in=[
+                    member.name
+                    for member in AssetClasses.all()
+                    if member.value.can_be_linked_to_asset_bed()  # better naming required
+                ],
             )
             .annotate(
                 resolved_middleware_hostname=Coalesce(

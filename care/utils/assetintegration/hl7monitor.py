@@ -45,3 +45,18 @@ class HL7MonitorAsset(BaseAssetIntegration):
         choices = []
         choices += [(e.value, e.name) for e in cls.HL7MonitorActions]
         return choices
+
+    @staticmethod
+    def is_movable():
+        return False
+
+    @staticmethod
+    def can_be_linked_to_asset_bed():
+        return True
+
+    @staticmethod
+    def can_be_linked_to_consultation_bed():
+        return False
+
+    def get_asset_status(self):
+        return self.api_get(self.get_url("devices/status"))

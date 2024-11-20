@@ -80,10 +80,6 @@ class AssetBed(BaseModel):
     def __str__(self):
         return f"{self.asset.name} - {self.bed.name}"
 
-    def delete(self, *args):
-        self.camera_presets.update(deleted=True)
-        return super().delete(*args)
-
 
 class ConsultationBed(BaseModel):
     consultation = models.ForeignKey(

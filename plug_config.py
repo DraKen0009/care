@@ -15,6 +15,10 @@ hcx_plugin = Plug(
     configs={},
 )
 
-plugs = [hcx_plugin, abdm_plugin]
+camera_plugin = Plug(
+    name="camera", package_name="/app/camera_plugin", version="", configs={}
+)
+
+plugs = [hcx_plugin, abdm_plugin, camera_plugin]
 
 manager = PlugManager(plugs)

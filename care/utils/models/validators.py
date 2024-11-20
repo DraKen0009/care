@@ -1,5 +1,5 @@
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from fractions import Fraction
 
 import jsonschema
@@ -49,6 +49,47 @@ class JSONFieldSchemaValidator:
             message = str(error).replace("\n\n", ": ").replace("\n", "")
             container.append(ValidationError(message))
         return None
+
+
+@deconstructible
+class DynamicJSONFieldSchemaValidator(JSONFieldSchemaValidator):
+    """
+    A dynamic JSONField schema validator that generates the schema at runtime.
+    Inherits from JSONFieldSchemaValidator for reusability.
+    """
+
+    def __init__(self, schema_generator: Callable[[], dict]):
+        """
+        Initialize with a schema generator function.
+
+        Args:
+            schema_generator (Callable): A callable that dynamically returns a JSON schema.
+        """
+        if not callable(schema_generator):
+            error = "schema_generator must be a callable that returns a schema."
+            raise TypeError(error)
+        self.schema_generator = schema_generator
+        super().__init__(
+            schema={}
+        )  # Initialize with an empty schema, updated dynamically in __call__
+
+    def __call__(self, value):
+        """
+        Override the parent class's __call__ method to dynamically generate the schema.
+
+        Args:
+            value: The JSON value to validate.
+
+        Raises:
+            ValidationError: If the value does not match the dynamically generated schema.
+        """
+        self.schema = self.schema_generator()
+
+        if not isinstance(self.schema, dict):
+            error = "Generated schema must be a dictionary."
+            raise ValueError(error)
+
+        super().__call__(value)
 
 
 @deconstructible

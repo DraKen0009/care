@@ -81,3 +81,22 @@ class BaseAssetIntegration:
     @classmethod
     def get_action_choices(cls):
         pass
+
+    @staticmethod
+    def can_be_linked_to_consultation_bed():
+        error = "'can_be_linked_to_consultation_bed()' method is not implemented"
+        raise NotImplementedError(error)
+
+    @staticmethod
+    def can_be_linked_to_asset_bed():
+        error = "'can_be_linked_to_asset_bed()' method is not implemented"
+        raise NotImplementedError(error)
+
+    @staticmethod
+    def is_movable():
+        error = "'is_movable()' method is not implemented"
+        raise (NotImplementedError(error))
+
+    def get_asset_status(self, **kwargs):
+        error = "Subclasses must implement the 'get_asset_status' method."
+        raise NotImplementedError(error)

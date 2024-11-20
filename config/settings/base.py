@@ -128,7 +128,7 @@ LOCAL_APPS = [
     "care.facility",
     "care.users",
     "care.audit_log",
-    "care.camera_plugin",
+    # "camera_plugin",
 ]
 
 PLUGIN_APPS = manager.get_apps()
