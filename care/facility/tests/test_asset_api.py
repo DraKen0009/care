@@ -130,6 +130,7 @@ class AssetViewSetTestCase(TestUtils, APITestCase):
             "name": "Test Asset",
             "asset_type": 50,
             "location": self.asset_location.external_id,
+            "asset_class": "VENTILATOR",
         }
         response = self.client.post("/api/v1/asset/", sample_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
