@@ -15,6 +15,13 @@ hcx_plugin = Plug(
     configs={},
 )
 
-plugs = [hcx_plugin, abdm_plugin]
+camera_plugin = Plug(
+    name="camera",
+    package_name="git+https://github.com/ohcnetwork/care_camera_asset.git",
+    version="@main",
+    configs={},
+)
+
+plugs = [hcx_plugin, abdm_plugin, camera_plugin]
 
 manager = PlugManager(plugs)
