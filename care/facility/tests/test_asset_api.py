@@ -135,6 +135,16 @@ class AssetViewSetTestCase(TestUtils, APITestCase):
         response = self.client.post("/api/v1/asset/", sample_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    def test_create_asset_with_invalid_asset_class(self):
+        sample_data = {
+            "name": "Test Asset",
+            "asset_type": 50,
+            "location": self.asset_location.external_id,
+            "asset_class": "INVALID_CLASS",
+        }
+        response = self.client.post("/api/v1/asset/", sample_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_create_asset_read_only(self):
         sample_data = {
             "name": "Test Asset",

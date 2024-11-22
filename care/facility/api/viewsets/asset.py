@@ -392,9 +392,9 @@ class AssetViewSet(
             )
             available_asset_classes = [asset.name for asset in AssetClasses.all()]
             if asset.asset_class not in available_asset_classes:
-                Response(
+                return Response(
                     {
-                        "error": f"Install {asset.asset_class}'s plugins to use it",
+                        "error": f"Cannot operate asset: Plugin for {asset.asset_class} is not installed",
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )

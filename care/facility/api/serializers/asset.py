@@ -411,11 +411,12 @@ class UserDefaultAssetLocationSerializer(ModelSerializer):
 
 
 class AssetActionSerializer(Serializer):
-    choices = []
-    for asset_class in AssetClasses.all():
-        choices.append(asset_class.value.get_action_choices())
     type = ChoiceField(
-        choices=choices,
+        choices=[
+            choice
+            for asset_class in AssetClasses.all()
+            for choice in asset_class.value.get_action_choices()
+        ],
         required=True,
     )
     data = JSONField(required=False)

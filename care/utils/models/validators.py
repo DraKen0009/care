@@ -83,7 +83,11 @@ class DynamicJSONFieldSchemaValidator(JSONFieldSchemaValidator):
         Raises:
             ValidationError: If the value does not match the dynamically generated schema.
         """
-        self.schema = self.schema_generator()
+        try:
+            self.schema = self.schema_generator()
+        except Exception as e:
+            error = f"Schema generator failed: {e!s}"
+            raise ValueError(error) from e
 
         if not isinstance(self.schema, dict):
             error = "Generated schema must be a dictionary."
