@@ -448,12 +448,6 @@ class TestUtils:
         return Bed.objects.create(**data)
 
     @classmethod
-    def create_asset_bed(cls, asset: Asset, bed: Bed, **kwargs):
-        data = {"asset": asset, "bed": bed}
-        data.update(kwargs)
-        return AssetBed.objects.create(**data)
-
-    @classmethod
     def create_consultation_bed(
         cls,
         consultation: PatientConsultation,
@@ -728,6 +722,12 @@ class TestUtils:
         data = cls.get_prescription_data(consultation, user)
         data.update(**kwargs)
         return Prescription.objects.create(**data)
+
+    @classmethod
+    def create_assetbed(cls, bed: Bed, asset: Asset, **kwargs) -> AssetBed:
+        data = {"bed": bed, "asset": asset}
+        data.update(kwargs)
+        return AssetBed.objects.create(**data)
 
     @classmethod
     def create_facility_flag(
