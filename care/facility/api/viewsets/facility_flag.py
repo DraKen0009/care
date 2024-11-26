@@ -1,5 +1,7 @@
 from django_filters import rest_framework as filters
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from care.facility.api.serializers.facility_flag import FacilityFlagSerializer
 from care.facility.models import FacilityFlag
@@ -25,3 +27,11 @@ class FacilityFlagViewSet(viewsets.ModelViewSet):
 
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = FacilityFlagFilter
+
+    @action(detail=False, methods=["get"], url_path="available-flags")
+    def list_available_flags(self, request):
+        """
+        List all available flags for FacilityFlag.
+        """
+        flags = FacilityFlag.objects.values_list("flag", flat=True).distinct()
+        return Response({"available_flags": list(flags)}, status=status.HTTP_200_OK)

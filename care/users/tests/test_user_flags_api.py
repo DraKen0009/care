@@ -24,10 +24,12 @@ class UserFlagsViewSetTestCase(TestUtils, APITestCase):
     def setUp(self):
         self.user_flag_1 = self.create_user_flag("TEST_FLAG", self.user)
 
-    def get_url(self, user_flag_id=None):
+    def get_url(self, user_flag_id=None, action=None):
         base_url = "/api/v1/user_flags/"
         if user_flag_id is not None:
             base_url += f"{user_flag_id}/"
+        if action is not None:
+            base_url += f"{action}/"
         return base_url
 
     def test_access_with_non_super_user(self):
@@ -46,6 +48,13 @@ class UserFlagsViewSetTestCase(TestUtils, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertEqual(data["count"], 2)
+
+    def test_list_available_flags(self):
+        self.client.force_authenticate(user=self.super_user)
+        response = self.client.get(self.get_url(action="available-flags"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(sorted(data["available_flags"]), ["TEST_FLAG", "TEST_FLAG_2"])
 
     def test_create_user_flag(self):
         self.client.force_authenticate(user=self.super_user)

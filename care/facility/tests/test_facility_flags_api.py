@@ -26,10 +26,12 @@ class FacilityFlagsViewSetTestCase(TestUtils, APITestCase):
     def setUp(self):
         self.facility_flag_1 = self.create_facility_flag("TEST_FLAG", self.facility)
 
-    def get_url(self, facility_flag_id=None):
+    def get_url(self, facility_flag_id=None, action=None):
         base_url = "/api/v1/facility_flags/"
         if facility_flag_id is not None:
             base_url += f"{facility_flag_id}/"
+        if action is not None:
+            base_url += f"{action}/"
         return base_url
 
     def test_access_with_non_super_user(self):
@@ -48,6 +50,13 @@ class FacilityFlagsViewSetTestCase(TestUtils, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertEqual(data["count"], 2)
+
+    def test_list_available_flags(self):
+        self.client.force_authenticate(user=self.super_user)
+        response = self.client.get(self.get_url(action="available-flags"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(sorted(data["available_flags"]), ["TEST_FLAG", "TEST_FLAG_2"])
 
     def test_create_facility_flag(self):
         self.client.force_authenticate(user=self.super_user)
