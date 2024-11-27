@@ -3,6 +3,8 @@ from django.test import TestCase
 
 from care.facility.models import (
     AssetLocation,
+    Bed,
+    ConsultationBed,
     Facility,
     FacilityDefaultAssetLocation,
     FacilityUser,
@@ -697,3 +699,130 @@ class TestFacilityDefaultAssetLocation(TestUtils, TestCase):
 
         # Ensure the Location is deleted
         self.assertFalse(AssetLocation.objects.filter(pk=self.location.pk).exists())
+
+
+class TestConsultationBed(TestUtils, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create necessary data
+        cls.state = cls.create_state()
+        cls.district = cls.create_district(cls.state)
+        cls.local_body = cls.create_local_body(cls.district)
+        cls.super_user = cls.create_super_user("superuser", cls.district)
+        cls.facility = cls.create_facility(cls.super_user, cls.district, cls.local_body)
+        cls.location = cls.create_asset_location(cls.facility)
+
+    def setUp(self):
+        # Create patient, consultation, bed, and consultation bed
+        self.patient = self.create_patient(self.district, self.facility)
+        self.consultation = self.create_consultation(self.patient, self.facility)
+        self.bed = self.create_bed(self.facility, self.location)
+        self.consultation_bed = ConsultationBed.objects.create(
+            consultation=self.consultation,
+            bed=self.bed,
+            start_date="2024-11-01T10:00:00Z",
+        )
+
+    def test_delete_consultation_with_related_consultation_bed(self):
+        # Ensure the consultation is linked to ConsultationBed
+        self.assertTrue(
+            ConsultationBed.objects.filter(consultation=self.consultation).exists()
+        )
+
+        # Attempt to delete the consultation
+        with self.assertRaises(ValidationError) as context:
+            self.consultation.delete()
+
+        # Assert that the correct exception is raised
+        self.assertIn(
+            f"Cannot delete PatientConsultation {self.consultation} because they are referenced as `consultation` in ConsultationBed records.",
+            str(context.exception),
+        )
+
+        # Ensure the consultation and ConsultationBed still exist
+        self.assertTrue(
+            PatientConsultation.objects.filter(pk=self.consultation.pk).exists()
+        )
+        self.assertTrue(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+    def test_delete_bed_with_related_consultation_bed(self):
+        # Ensure the bed is linked to ConsultationBed
+        self.assertTrue(ConsultationBed.objects.filter(bed=self.bed).exists())
+
+        # Attempt to delete the bed
+        with self.assertRaises(ValidationError) as context:
+            self.bed.delete()
+
+        # Assert that the correct exception is raised
+        self.assertIn(
+            f"Cannot delete Bed {self.bed} because they are referenced as `bed` in ConsultationBed records.",
+            str(context.exception),
+        )
+
+        # Ensure the bed and ConsultationBed still exist
+        self.assertTrue(Bed.objects.filter(pk=self.bed.pk).exists())
+        self.assertTrue(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+    def test_delete_consultation_bed(self):
+        # Ensure the ConsultationBed exists
+        self.assertTrue(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+        # Delete the ConsultationBed
+        self.consultation_bed.delete()
+
+        # Ensure it is deleted and other related objects are unaffected
+        self.assertFalse(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+        self.assertTrue(
+            PatientConsultation.objects.filter(pk=self.consultation.pk).exists()
+        )
+        self.assertTrue(Bed.objects.filter(pk=self.bed.pk).exists())
+
+    def test_delete_consultation_bed_then_consultation(self):
+        # Ensure the ConsultationBed exists
+        self.assertTrue(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+        # Delete the ConsultationBed
+        self.consultation_bed.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+        # Attempt to delete the Consultation
+        self.consultation.delete()
+
+        # Ensure the Consultation is deleted
+        self.assertFalse(
+            PatientConsultation.objects.filter(pk=self.consultation.pk).exists()
+        )
+
+    def test_delete_consultation_bed_then_bed(self):
+        # Ensure the ConsultationBed exists
+        self.assertTrue(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+        # Delete the ConsultationBed
+        self.consultation_bed.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            ConsultationBed.objects.filter(pk=self.consultation_bed.pk).exists()
+        )
+
+        # Attempt to delete the Bed
+        self.bed.delete()
+
+        # Ensure the Bed is deleted
+        self.assertFalse(Bed.objects.filter(pk=self.bed.pk).exists())

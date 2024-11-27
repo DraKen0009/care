@@ -59,6 +59,10 @@ class Bed(BaseModel):
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs) -> None:
+        if ConsultationBed.objects.filter(bed=self).exists():
+            error = f"Cannot delete Bed {self} because they are referenced as `bed` in ConsultationBed records."
+            raise ValidationError(error)
+
         AssetBed.objects.filter(bed=self).update(deleted=True)
         super().delete(*args, **kwargs)
 

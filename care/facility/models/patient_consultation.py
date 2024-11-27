@@ -266,6 +266,7 @@ class PatientConsultation(PatientBaseModel, ConsultationRelatedPermissionMixin):
         super().save(*args, **kwargs)
 
     def delete(self, *args):
+        from care.facility.models.bed import ConsultationBed
         from care.facility.models.patient_investigation import InvestigationValue
         from care.facility.models.patient_sample import PatientSample
 
@@ -276,6 +277,11 @@ class PatientConsultation(PatientBaseModel, ConsultationRelatedPermissionMixin):
         if PatientSample.objects.filter(consultation=self).exists():
             error = f"Cannot delete PatientConsultation {self} because they are referenced as `consultation` in PatientSample records."
             raise ValidationError(error)
+
+        if ConsultationBed.objects.filter(consultation=self).exists():
+            error = f"Cannot delete PatientConsultation {self} because they are referenced as `consultation` in ConsultationBed records."
+            raise ValidationError(error)
+
         return super().delete(*args)
 
     class Meta:
