@@ -33,5 +33,11 @@ class FacilityFlagViewSet(viewsets.ModelViewSet):
         """
         List all available flags for FacilityFlag.
         """
-        flags = FacilityFlag.objects.values_list("flag", flat=True).distinct()
-        return Response({"available_flags": list(flags)}, status=status.HTTP_200_OK)
+        try:
+            flags = FacilityFlag.objects.values_list("flag", flat=True).distinct()
+            return Response({"available_flags": list(flags)}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch available flags", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
