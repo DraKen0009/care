@@ -3,6 +3,8 @@ from django.test import TestCase
 
 from care.facility.models import (
     AssetLocation,
+    Facility,
+    FacilityDefaultAssetLocation,
     FacilityUser,
     InvestigationSession,
     InvestigationValue,
@@ -442,7 +444,7 @@ class TestUserDefaultAssetLocation(TestUtils, TestCase):
         # Create a user and a UserDefaultAssetLocation
         self.user = self.create_user("test_user", district=self.district)
         self.location = self.create_asset_location(self.facility)
-        self.user_default_location = UserDefaultAssetLocation.objects.create(
+        self.user_default_location = self.create_user_default_asset_location(
             user=self.user, location=self.location
         )
 
@@ -553,6 +555,140 @@ class TestUserDefaultAssetLocation(TestUtils, TestCase):
         self.assertFalse(
             UserDefaultAssetLocation.objects.filter(
                 pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Attempt to delete the Location
+        self.location.delete()
+
+        # Ensure the Location is deleted
+        self.assertFalse(AssetLocation.objects.filter(pk=self.location.pk).exists())
+
+
+class TestFacilityDefaultAssetLocation(TestUtils, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create necessary data
+        cls.state = cls.create_state()
+        cls.district = cls.create_district(cls.state)
+        cls.local_body = cls.create_local_body(cls.district)
+        cls.super_user = cls.create_super_user("superuser", cls.district)
+        cls.facility = cls.create_facility(cls.super_user, cls.district, cls.local_body)
+
+    def setUp(self):
+        # Create a location and a FacilityDefaultAssetLocation
+        self.location = self.create_asset_location(self.facility)
+        self.facility_default_location = self.create_facility_default_asset_location(
+            facility=self.facility, location=self.location
+        )
+
+    def test_delete_facility_with_related_facility_default_asset_location(self):
+        # Ensure the facility is linked to FacilityDefaultAssetLocation
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(facility=self.facility).exists()
+        )
+
+        # Attempt to delete the facility
+        with self.assertRaises(ValidationError) as context:
+            self.facility.delete()
+
+        # Assert that the correct exception is raised
+        self.assertIn(
+            f"Cannot delete Facility {self.facility} because they are referenced as `facility` in FacilityDefaultAssetLocation records.",
+            str(context.exception),
+        )
+
+        # Ensure the facility and FacilityDefaultAssetLocation still exist
+        self.assertTrue(Facility.objects.filter(pk=self.facility.pk).exists())
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+    def test_delete_location_with_related_facility_default_asset_location(self):
+        # Ensure the location is linked to FacilityDefaultAssetLocation
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(location=self.location).exists()
+        )
+
+        # Attempt to delete the location
+        with self.assertRaises(ValidationError) as context:
+            self.location.delete()
+
+        # Assert that the correct exception is raised
+        self.assertIn(
+            f"Cannot delete AssetLocation {self.location} because they are referenced as `location` in FacilityDefaultAssetLocation records.",
+            str(context.exception),
+        )
+
+        # Ensure the location and FacilityDefaultAssetLocation still exist
+        self.assertTrue(AssetLocation.objects.filter(pk=self.location.pk).exists())
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+    def test_delete_facility_default_asset_location(self):
+        # Ensure the FacilityDefaultAssetLocation exists
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+        # Delete the FacilityDefaultAssetLocation
+        self.facility_default_location.delete()
+
+        # Ensure it is deleted and other related objects are unaffected
+        self.assertFalse(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+        self.assertTrue(Facility.objects.filter(pk=self.facility.pk).exists())
+        self.assertTrue(AssetLocation.objects.filter(pk=self.location.pk).exists())
+
+    def test_delete_facility_default_asset_location_then_facility(self):
+        # Ensure the FacilityDefaultAssetLocation exists
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+        # Delete the FacilityDefaultAssetLocation
+        self.facility_default_location.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+        # Attempt to delete the Facility
+        self.facility.delete()
+
+        # Ensure the Facility is deleted
+        self.assertFalse(Facility.objects.filter(pk=self.facility.pk).exists())
+
+    def test_delete_facility_default_asset_location_then_location(self):
+        # Ensure the FacilityDefaultAssetLocation exists
+        self.assertTrue(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
+            ).exists()
+        )
+
+        # Delete the FacilityDefaultAssetLocation
+        self.facility_default_location.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            FacilityDefaultAssetLocation.objects.filter(
+                pk=self.facility_default_location.pk
             ).exists()
         )
 

@@ -59,6 +59,9 @@ class AssetLocation(BaseModel, FacilityRelatedPermissionMixin):
         if UserDefaultAssetLocation.objects.filter(location=self).exists():
             error = f"Cannot delete AssetLocation {self} because they are referenced as `location` in UserDefaultAssetLocation records."
             raise ValidationError(error)
+        if FacilityDefaultAssetLocation.objects.filter(location=self).exists():
+            error = f"Cannot delete AssetLocation {self} because they are referenced as `location` in FacilityDefaultAssetLocation records."
+            raise ValidationError(error)
         return super().delete(*args)
 
 

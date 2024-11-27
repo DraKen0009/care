@@ -37,7 +37,12 @@ from care.facility.models import (
     User,
     Ward,
 )
-from care.facility.models.asset import Asset, AssetLocation
+from care.facility.models.asset import (
+    Asset,
+    AssetLocation,
+    FacilityDefaultAssetLocation,
+    UserDefaultAssetLocation,
+)
 from care.facility.models.bed import AssetBed, Bed, ConsultationBed
 from care.facility.models.facility import FacilityUser
 from care.facility.models.icd11_diagnosis import (
@@ -745,6 +750,20 @@ class TestUtils:
         data = {"bed": bed, "asset": asset}
         data.update(kwargs)
         return AssetBed.objects.create(**data)
+
+    @classmethod
+    def create_facility_default_asset_location(
+        cls, facility: Facility, location: AssetLocation
+    ) -> FacilityDefaultAssetLocation:
+        data = {"facility": facility, "location": location}
+        return FacilityDefaultAssetLocation.objects.create(**data)
+
+    @classmethod
+    def create_user_default_asset_location(
+        cls, user: User, location: AssetLocation
+    ) -> UserDefaultAssetLocation:
+        data = {"user": user, "location": location}
+        return UserDefaultAssetLocation.objects.create(**data)
 
     def get_list_representation(self, obj) -> dict:
         """
