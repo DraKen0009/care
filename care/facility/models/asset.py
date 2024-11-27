@@ -2,6 +2,7 @@ import enum
 import uuid
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import JSONField, Q
 
@@ -53,6 +54,12 @@ class AssetLocation(BaseModel, FacilityRelatedPermissionMixin):
     middleware_address = models.CharField(
         null=True, blank=True, default=None, max_length=200
     )
+
+    def delete(self, *args):
+        if UserDefaultAssetLocation.objects.filter(location=self).exists():
+            error = f"Cannot delete AssetLocation {self} because they are referenced as `location` in UserDefaultAssetLocation records."
+            raise ValidationError(error)
+        return super().delete(*args)
 
 
 class AssetType(enum.Enum):

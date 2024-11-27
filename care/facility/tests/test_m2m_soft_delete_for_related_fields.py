@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from care.facility.models import (
+    AssetLocation,
     FacilityUser,
     InvestigationSession,
     InvestigationValue,
@@ -10,6 +11,7 @@ from care.facility.models import (
     PatientInvestigationGroup,
     PatientRegistration,
     PatientSample,
+    UserDefaultAssetLocation,
 )
 from care.users.models import User
 from care.utils.tests.test_utils import TestUtils
@@ -424,3 +426,138 @@ class TestPatientSampleDeletion(TestUtils, TestCase):
         self.assertIsNone(self.sample.last_edited_by)
         self.assertIsNone(sample2.created_by)
         self.assertIsNone(sample2.last_edited_by)
+
+
+class TestUserDefaultAssetLocation(TestUtils, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create necessary data
+        cls.state = cls.create_state()
+        cls.district = cls.create_district(cls.state)
+        cls.super_user = cls.create_super_user("superuser", cls.district)
+        cls.local_body = cls.create_local_body(cls.district)
+        cls.facility = cls.create_facility(cls.super_user, cls.district, cls.local_body)
+
+    def setUp(self):
+        # Create a user and a UserDefaultAssetLocation
+        self.user = self.create_user("test_user", district=self.district)
+        self.location = self.create_asset_location(self.facility)
+        self.user_default_location = UserDefaultAssetLocation.objects.create(
+            user=self.user, location=self.location
+        )
+
+    def test_delete_user_with_related_user_default_asset_location(self):
+        # Ensure the user is linked to UserDefaultAssetLocation
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(user=self.user).exists()
+        )
+
+        # Attempt to delete the user
+        with self.assertRaises(ValidationError) as context:
+            self.user.delete()
+
+        # Assert that the exception is raised
+        self.assertIn(
+            f"Cannot delete User {self.user} because they are referenced as `user` in UserDefaultAssetLocation records.",
+            str(context.exception),
+        )
+
+        # Ensure the user and UserDefaultAssetLocation still exist
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+    def test_delete_location_with_related_user_default_asset_location(self):
+        # Ensure the location is linked to UserDefaultAssetLocation
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(location=self.location).exists()
+        )
+
+        # Attempt to delete the location
+        with self.assertRaises(ValidationError) as context:
+            self.location.delete()
+
+        # Assert that the correct exception is raised
+        self.assertIn(
+            f"Cannot delete AssetLocation {self.location} because they are referenced as `location` in UserDefaultAssetLocation records.",
+            str(context.exception),
+        )
+
+        # Ensure the location and UserDefaultAssetLocation still exist
+        self.assertTrue(AssetLocation.objects.filter(pk=self.location.pk).exists())
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+    def test_delete_user_default_asset_location(self):
+        # Ensure the UserDefaultAssetLocation exists
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Delete the UserDefaultAssetLocation
+        self.user_default_location.delete()
+
+        # Ensure it is deleted and other related objects are unaffected
+        self.assertFalse(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        self.assertTrue(AssetLocation.objects.filter(pk=self.location.pk).exists())
+
+    def test_delete_user_default_asset_location_then_user(self):
+        # Ensure the UserDefaultAssetLocation exists
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Delete the UserDefaultAssetLocation
+        self.user_default_location.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Attempt to delete the User
+        self.user.delete()
+
+        # Ensure the User is deleted
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_delete_user_default_asset_location_then_location(self):
+        # Ensure the UserDefaultAssetLocation exists
+        self.assertTrue(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Delete the UserDefaultAssetLocation
+        self.user_default_location.delete()
+
+        # Ensure it is deleted
+        self.assertFalse(
+            UserDefaultAssetLocation.objects.filter(
+                pk=self.user_default_location.pk
+            ).exists()
+        )
+
+        # Attempt to delete the Location
+        self.location.delete()
+
+        # Ensure the Location is deleted
+        self.assertFalse(AssetLocation.objects.filter(pk=self.location.pk).exists())

@@ -408,11 +408,16 @@ class User(AbstractUser):
 
     @transaction.atomic
     def delete(self, *args, **kwargs):
+        from care.facility.models.asset import UserDefaultAssetLocation
         from care.facility.models.facility import FacilityUser
         from care.facility.models.patient_sample import PatientSample
 
         if FacilityUser.objects.filter(created_by=self).exists():
             error = f"Cannot delete User {self.username} because they are referenced as `created_by` in FacilityUser records."
+            raise ValidationError(error)
+
+        if UserDefaultAssetLocation.objects.filter(user=self).exists():
+            error = f"Cannot delete User {self} because they are referenced as `user` in UserDefaultAssetLocation records."
             raise ValidationError(error)
 
         FacilityUser.objects.filter(user=self).delete()
