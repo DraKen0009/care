@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from care.facility.models.patient_consultation import PatientConsultation
@@ -14,6 +15,12 @@ class PatientInvestigationGroup(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+    def delete(self, *args):
+        if InvestigationValue.objects.filter(group=self).exists():
+            error = f"Cannot delete PatientInvestigationGroup {self.name} because they are referenced as `group` in InvestigationValue records."
+            raise ValidationError(error)
+        super().delete(*args)
 
 
 class PatientInvestigation(BaseModel):
@@ -32,6 +39,13 @@ class PatientInvestigation(BaseModel):
         unit_part = f" in {self.unit}" if self.unit else ""
         return f"{self.name}{unit_part} as {self.investigation_type}"
 
+    def delete(self, *args):
+        if InvestigationValue.objects.filter(investigation=self).exists():
+            error = f"Cannot delete PatientInvestigation {self} because they are referenced as `investigation` in InvestigationValue records."
+
+            raise ValidationError(error)
+        return super().delete(*args)
+
 
 class InvestigationSession(BaseModel):
     external_id = models.UUIDField(
@@ -40,6 +54,12 @@ class InvestigationSession(BaseModel):
     created_by = models.ForeignKey(
         User, null=False, blank=False, on_delete=models.PROTECT
     )
+
+    def delete(self, *args):
+        if InvestigationValue.objects.filter(session=self).exists():
+            error = f"Cannot delete InvestigationSession {self.external_id} because they are referenced as `session` in InvestigationValue records."
+            raise ValidationError(error)
+        return super().delete(*args)
 
     class Meta:
         indexes = [

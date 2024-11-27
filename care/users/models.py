@@ -4,8 +4,9 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
@@ -405,7 +406,18 @@ class User(AbstractUser):
     def check_username_exists(username):
         return User.objects.get_entire_queryset().filter(username=username).exists()
 
+    @transaction.atomic
     def delete(self, *args, **kwargs):
+        from care.facility.models.facility import FacilityUser
+        from care.facility.models.patient_sample import PatientSample
+
+        if FacilityUser.objects.filter(created_by=self).exists():
+            error = f"Cannot delete User {self.username} because they are referenced as `created_by` in FacilityUser records."
+            raise ValidationError(error)
+
+        FacilityUser.objects.filter(user=self).delete()
+        PatientSample.objects.filter(created_by=self).update(created_by=None)
+        PatientSample.objects.filter(last_edited_by=self).update(last_edited_by=None)
         self.deleted = True
         self.save()
 

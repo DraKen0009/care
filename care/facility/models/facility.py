@@ -303,6 +303,7 @@ class Facility(FacilityBaseModel, FacilityPermissionMixin):
     @transaction.atomic
     def delete(self, *args):
         from care.facility.models.asset import Asset, AssetLocation
+        from care.facility.models.patient_sample import PatientSample
 
         AssetLocation.objects.filter(facility_id=self.id).update(deleted=True)
         Asset.objects.filter(
@@ -310,6 +311,10 @@ class Facility(FacilityBaseModel, FacilityPermissionMixin):
                 facility_id=self.id
             ).values_list("id", flat=True)
         ).update(deleted=True)
+        FacilityUser.objects.filter(facility=self).delete()
+        PatientSample.objects.filter(testing_facility=self).update(
+            testing_facility=None
+        )
         return super().delete(*args)
 
     @property

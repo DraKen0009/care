@@ -1,4 +1,5 @@
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import JSONField
@@ -263,6 +264,19 @@ class PatientConsultation(PatientBaseModel, ConsultationRelatedPermissionMixin):
             self.patient.death_datetime = self.death_datetime
             self.patient.save(update_fields=["death_datetime"])
         super().save(*args, **kwargs)
+
+    def delete(self, *args):
+        from care.facility.models.patient_investigation import InvestigationValue
+        from care.facility.models.patient_sample import PatientSample
+
+        if InvestigationValue.objects.filter(consultation=self).exists():
+            error = f"Cannot delete PatientConsultation {self.external_id} because they are referenced as `consultation` in InvestigationValue records."
+            raise ValidationError(error)
+
+        if PatientSample.objects.filter(consultation=self).exists():
+            error = f"Cannot delete PatientConsultation {self} because they are referenced as `consultation` in PatientSample records."
+            raise ValidationError(error)
+        return super().delete(*args)
 
     class Meta:
         constraints = [

@@ -723,6 +723,24 @@ class TestUtils:
         return Prescription.objects.create(**data)
 
     @classmethod
+    def create_facility_user(
+        cls, facility: Facility, user: User, created_by: User, **kwargs
+    ) -> FacilityUser:
+        data = {
+            "facility": facility,
+            "created_by": created_by,
+            "user": user,
+        }
+        data.update(**kwargs)
+        return FacilityUser.objects.create(**data)
+
+    @classmethod
+    def create_investigation_group(cls, **kwargs) -> PatientInvestigationGroup:
+        data = {"name": now()}
+        data.update(**kwargs)
+        return PatientInvestigationGroup.objects.create(**data)
+
+    @classmethod
     def create_assetbed(cls, bed: Bed, asset: Asset, **kwargs) -> AssetBed:
         data = {"bed": bed, "asset": asset}
         data.update(kwargs)

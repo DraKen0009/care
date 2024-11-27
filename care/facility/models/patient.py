@@ -3,6 +3,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Case, F, Func, JSONField, Value, When
@@ -473,6 +474,14 @@ class PatientRegistration(PatientBaseModel, PatientPermissionMixin):
 
         self._alias_recovery_to_recovered()
         super().save(*args, **kwargs)
+
+    def delete(self, *args):
+        from care.facility.models.patient_sample import PatientSample
+
+        if PatientSample.objects.filter(patient=self).exists():
+            error = f"Cannot delete PatientRegistration {self} because they are referenced as `patient` in PatientSample records."
+            raise ValidationError(error)
+        return super().delete(*args)
 
     def get_age(self) -> str:
         start = self.date_of_birth or date(self.year_of_birth, 1, 1)
