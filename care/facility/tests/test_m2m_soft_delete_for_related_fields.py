@@ -140,7 +140,9 @@ class TestInvestigationValueDeletion(TestUtils, TestCase):
 
     def test_delete_patient_investigation_without_investigation_value(self):
         # Ensure no InvestigationValue exists
-        InvestigationValue.objects.filter(investigation=self.investigation).delete()
+        InvestigationValue.objects.filter(investigation=self.investigation).update(
+            deleted=True
+        )
 
         # Delete the investigation
         self.investigation.delete()
@@ -177,7 +179,9 @@ class TestInvestigationValueDeletion(TestUtils, TestCase):
 
     def test_delete_investigation_session_without_investigation_value(self):
         # Ensure no InvestigationValue exists
-        InvestigationValue.objects.filter(session=self.investigation_session).delete()
+        InvestigationValue.objects.filter(session=self.investigation_session).update(
+            deleted=True
+        )
 
         # Delete the session
         self.investigation_session.delete()
@@ -216,7 +220,9 @@ class TestInvestigationValueDeletion(TestUtils, TestCase):
 
     def test_delete_patient_investigation_group_without_investigation_value(self):
         # Ensure no InvestigationValue exists
-        InvestigationValue.objects.filter(group=self.investigation_group).delete()
+        InvestigationValue.objects.filter(group=self.investigation_group).update(
+            deleted=True
+        )
 
         # Delete the group
         self.investigation_group.delete()
@@ -253,7 +259,9 @@ class TestInvestigationValueDeletion(TestUtils, TestCase):
 
     def test_delete_patient_consultation_without_investigation_value(self):
         # Ensure no InvestigationValue exists
-        InvestigationValue.objects.filter(consultation=self.consultation).delete()
+        InvestigationValue.objects.filter(consultation=self.consultation).update(
+            deleted=True
+        )
 
         # Delete the consultation
         self.consultation.delete()
