@@ -109,7 +109,7 @@ class TestInvestigationValueDeletion(TestUtils, TestCase):
             self.district, self.facility, local_body=self.local_body
         )
         self.consultation = self.create_consultation(self.patient, self.facility)
-        self.investigation_group = self.create_investigation_group()
+        self.investigation_group = self.create_patient_investigation_group()
         self.investigation_session = self.create_patient_investigation_session(
             self.super_user
         )

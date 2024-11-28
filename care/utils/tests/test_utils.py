@@ -740,12 +740,6 @@ class TestUtils:
         return FacilityUser.objects.create(**data)
 
     @classmethod
-    def create_investigation_group(cls, **kwargs) -> PatientInvestigationGroup:
-        data = {"name": now()}
-        data.update(**kwargs)
-        return PatientInvestigationGroup.objects.create(**data)
-
-    @classmethod
     def create_assetbed(cls, bed: Bed, asset: Asset, **kwargs) -> AssetBed:
         data = {"bed": bed, "asset": asset}
         data.update(kwargs)
