@@ -141,9 +141,7 @@ class AssetSerializer(ModelSerializer):
     id = UUIDField(source="external_id", read_only=True)
     status = ChoiceField(choices=StatusChoices, read_only=True)
     asset_type = ChoiceField(choices=AssetTypeChoices)
-    asset_class = serializers.ChoiceField(
-        choices=Asset.get_asset_class_choices(), required=False
-    )
+    asset_class = serializers.CharField(required=False)
     location_object = AssetLocationSerializer(source="current_location", read_only=True)
     location = UUIDField(write_only=True, required=True)
     last_service = AssetServiceSerializer(read_only=True)
@@ -166,6 +164,13 @@ class AssetSerializer(ModelSerializer):
         return value
 
     def validate(self, attrs):
+        if (
+            "asset_class" in attrs
+            and attrs["asset_class"] not in Asset.get_asset_class_choices()
+        ):
+            error = f"{attrs['asset_class']} is not a valid asset class"
+            raise ValidationError(error)
+
         user = self.context["request"].user
         if "location" in attrs:
             location = get_object_or_404(
