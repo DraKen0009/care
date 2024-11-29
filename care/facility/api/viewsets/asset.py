@@ -202,7 +202,9 @@ class AssetFilter(filters.FilterSet):
     def filter_is_permanent(self, queryset, _, value):
         if value not in EMPTY_VALUES:
             movable_assets = [
-                member.name for member in AssetClasses.all() if not member.is_movable
+                member.name
+                for member in AssetClasses.all()
+                if not member.value.is_movable()
             ]
             if value:
                 queryset = queryset.filter(asset_class__in=movable_assets)

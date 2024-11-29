@@ -240,7 +240,7 @@ class AssetSerializer(ModelSerializer):
                         asset_class__in=[
                             member.name
                             for member in AssetClasses.all()
-                            if member.value.can_be_linked_to_asset_bed  # need better naming
+                            if member.value.can_be_linked_to_asset_bed()  # need better naming
                         ],
                         current_location__facility=current_location.facility_id,
                         resolved_middleware_hostname=middleware_hostname,
