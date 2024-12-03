@@ -6,10 +6,11 @@ from rest_framework.response import Response
 from care.facility.api.serializers.facility_flag import FacilityFlagSerializer
 from care.facility.models import FacilityFlag
 from care.utils.custom_permissions import IsSuperUser
+from care.utils.registries.feature_flag import FlagRegistry, FlagType
 
 
 class FacilityFlagFilter(filters.FilterSet):
-    flag = filters.CharFilter(field_name="flag", lookup_expr="icontains")
+    flag = filters.CharFilter(field_name="flag", lookup_expr="exact")
     facility = filters.UUIDFilter(field_name="facility__external_id")
 
 
@@ -34,8 +35,8 @@ class FacilityFlagViewSet(viewsets.ModelViewSet):
         List all available flags for FacilityFlag.
         """
         try:
-            flags = FacilityFlag.objects.values_list("flag", flat=True).distinct()
-            return Response({"available_flags": list(flags)}, status=status.HTTP_200_OK)
+            flags = FlagRegistry.get_all_flags(FlagType.FACILITY)
+            return Response({"available_flags": list(flags)})
         except Exception as e:
             return Response(
                 {"error": "Failed to fetch available flags", "detail": str(e)},
