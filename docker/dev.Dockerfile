@@ -36,6 +36,7 @@ RUN pip install pipenv==2024.4.0
 RUN python -m venv /.venv
 COPY Pipfile Pipfile.lock $APP_HOME/
 RUN --mount=type=cache,target=/root/.cache/pip pipenv  install --system --categories "packages dev-packages docs"
+RUN pip install requests
 
 COPY . $APP_HOME/
 

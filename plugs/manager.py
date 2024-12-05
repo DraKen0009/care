@@ -21,10 +21,14 @@ class PlugManager:
         # load additional plugs from environment variable
         if additional_plugs := os.getenv("ADDITIONAL_PLUGS"):
             try:
+                print("\n"*5)
+                print(additional_plugs)
+                print("\n"*5)
                 for plug in json.loads(additional_plugs):
                     self.add_plug(Plug(**plug))
             except json.JSONDecodeError:
                 logger.error("ADDITIONAL_PLUGS is not a valid JSON")
+                logger.info(additional_plugs)
 
     def install(self) -> None:
         packages: list[str] = [f"{x.package_name}{x.version}" for x in self.plugs]

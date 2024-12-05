@@ -22,6 +22,6 @@ camera_plugin = Plug(
     configs={},
 )
 
-plugs = [hcx_plugin, abdm_plugin, camera_plugin]
+plugs = []
 
 manager = PlugManager(plugs)
