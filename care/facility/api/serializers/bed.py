@@ -125,7 +125,7 @@ class AssetBedSerializer(ModelSerializer):
             valid_asset_classes = [
                 member.name
                 for member in AssetClasses.all()
-                if member.value.can_be_linked_to_asset_bed()
+                if member.name == "HL7MONITOR"
             ]
             if asset.asset_class not in valid_asset_classes:
                 raise ValidationError(

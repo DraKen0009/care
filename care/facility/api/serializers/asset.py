@@ -425,9 +425,10 @@ class AssetActionSerializer(Serializer):
         required=True,
     )
     data = JSONField(required=False)
+    options = JSONField(required=False)
 
     class Meta:
-        fields = ("type", "data")
+        fields = ("type", "data", "options")
 
 
 class DummyAssetOperateSerializer(Serializer):
