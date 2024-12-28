@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('facility', '0467_alter_hospitaldoctors_area'),
+        ('facility', '0468_alter_facilitypatientstatshistory_unique_together_and_more'),
     ]
 
     operations = [
