@@ -20,7 +20,7 @@ class HL7MonitorAsset(BaseAssetIntegration):
                 {key: f"{key} not found in asset metadata" for key in e.args}
             ) from e
 
-    def handle_action(self, **kwargs: ActionParams):
+    def handle_action(self, user, **kwargs: ActionParams):
         action_type = kwargs["type"]
         timeout = kwargs.get("timeout")
 

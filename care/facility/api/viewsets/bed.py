@@ -1,3 +1,4 @@
+from distutils.util import strtobool
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, Subquery
@@ -5,6 +6,7 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters as drf_filters
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.fields import get_error_detail
@@ -230,3 +232,37 @@ class ConsultationBedViewSet(
             allowed_facilities = get_accessible_facilities(user)
             queryset = queryset.filter(bed__facility__id__in=allowed_facilities)
         return queryset
+
+    @action(detail=True, methods=["patch"])
+    def set_privacy(self, request, external_id):
+        consultation_bed: ConsultationBed = self.get_object()
+
+        is_privacy_enabled = request.data.get("is_privacy_enabled")
+
+        if is_privacy_enabled is None:
+            return Response(
+                {"detail": "is_privacy_enabled is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            is_privacy_enabled = strtobool(is_privacy_enabled)
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "is_privacy_enabled should be a boolean"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not consultation_bed.consultation.patient.has_object_update_permission(
+            request
+        ) or request.user.user_type in [
+            User.TYPE_VALUE_MAP["DistrictLabAdmin"],
+            User.TYPE_VALUE_MAP["StateLabAdmin"],
+        ]:
+            raise PermissionDenied
+
+        consultation_bed.is_privacy_enabled = is_privacy_enabled
+        consultation_bed.save(update_fields=["is_privacy_enabled"])
+
+        return Response(
+            ConsultationBedSerializer(consultation_bed).data, status=status.HTTP_200_OK
+        )

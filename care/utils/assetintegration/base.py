@@ -37,7 +37,7 @@ class BaseAssetIntegration:
         self.insecure_connection = self.meta.get("insecure_connection", False)
         self.timeout = settings.MIDDLEWARE_REQUEST_TIMEOUT
 
-    def handle_action(self, **kwargs):
+    def handle_action(self, user, **kwargs):
         """Handle actions using kwargs instead of dict."""
 
     def get_url(self, endpoint):
