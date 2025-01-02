@@ -10,8 +10,8 @@ from rest_framework.response import Response
 from care.emr.api.viewsets.base import EMRBaseViewSet
 from care.facility.api.serializers.patient_otp import rand_pass
 from care.facility.models import PatientMobileOTP
+from care.utils import sms
 from care.utils.models.validators import mobile_validator
-from care.utils.sms.send_sms import send_sms
 from config.patient_otp_token import PatientToken
 
 
@@ -51,13 +51,15 @@ class OTPLoginView(EMRBaseViewSet):
         if settings.USE_SMS:
             random_otp = rand_pass(settings.OTP_LENGTH)
             try:
-                send_sms(
-                    data.phone_number,
-                    (
+                message = sms.TextMessage(
+                    content=(
                         f"Open Healthcare Network Patient Management System Login, OTP is {random_otp} . "
                         "Please do not share this Confidential Login Token with anyone else"
                     ),
+                    recipients=[data.phone_number],
                 )
+                connection = sms.initialize_backend()
+                connection.send_message(message)
             except Exception as e:
                 import logging
 

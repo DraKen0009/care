@@ -8,7 +8,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from care.facility.models.patient import PatientMobileOTP
-from care.utils.sms.send_sms import send_sms
+from care.utils import sms
 
 
 def rand_pass(size):
@@ -41,13 +41,15 @@ class PatientMobileOTPSerializer(serializers.ModelSerializer):
         otp = rand_pass(settings.OTP_LENGTH)
 
         if settings.USE_SMS:
-            send_sms(
-                otp_obj.phone_number,
-                (
+            message = sms.TextMessage(
+                content=(
                     f"Open Healthcare Network Patient Management System Login, OTP is {otp} . "
                     "Please do not share this Confidential Login Token with anyone else"
                 ),
+                recipients=[otp_obj.phone_number],
             )
+            connection = sms.initialize_backend()
+            connection.send_message(message)
         elif settings.DEBUG:
             print(otp, otp_obj.phone_number)  # noqa: T201
 

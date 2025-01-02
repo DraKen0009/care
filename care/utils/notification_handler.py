@@ -17,7 +17,7 @@ from care.facility.models.patient_investigation import (
 )
 from care.facility.models.shifting import ShiftingRequest
 from care.users.models import User
-from care.utils.sms.send_sms import send_sms
+from care.utils import sms
 
 logger = logging.getLogger(__name__)
 
@@ -371,11 +371,12 @@ class NotificationGenerator:
                 medium == Notification.Medium.SMS.value
                 and settings.SEND_SMS_NOTIFICATION
             ):
-                send_sms(
-                    self.generate_sms_phone_numbers(),
-                    self.generate_sms_message(),
-                    many=True,
+                message = sms.TextMessage(
+                    content=self.generate_sms_message(),
+                    recipients=self.generate_sms_phone_numbers(),
                 )
+                connection = sms.initialize_backend()
+                connection.send_message(message)
             elif medium == Notification.Medium.SYSTEM.value:
                 if not self.message:
                     self.message = self.generate_system_message()
