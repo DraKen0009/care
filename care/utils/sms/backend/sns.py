@@ -14,7 +14,21 @@ except ImportError:
 
 
 class SnsBackend(SmsBackendBase):
+    """
+    Sends SMS messages using AWS SNS.
+    """
+
     def __init__(self, fail_silently: bool = False, **kwargs) -> None:
+        """
+        Initialize the SNS backend.
+
+        Args:
+            fail_silently (bool): Whether to suppress exceptions during initialization. Defaults to False.
+            **kwargs: Additional arguments for backend configuration.
+
+        Raises:
+            ImproperlyConfigured: If required AWS SNS settings are missing or boto3 is not installed.
+        """
         super().__init__(fail_silently=fail_silently, **kwargs)
 
         if not HAS_BOTO3 and not self.fail_silently:
@@ -26,14 +40,14 @@ class SnsBackend(SmsBackendBase):
 
         self.sns_client = None
         if HAS_BOTO3:
-            if settings.SNS_ROLE_BASED_MODE:
+            if getattr(settings, "SNS_ROLE_BASED_MODE", False):
                 if not self.region_name:
                     raise ImproperlyConfigured(
                         "AWS SNS is not configured. Check 'SNS_REGION' in settings."
                     )
                 self.sns_client = boto3.client(
                     "sns",
-                    region_name=settings.SNS_REGION,
+                    region_name=self.region_name,
                 )
             else:
                 if (
@@ -42,7 +56,7 @@ class SnsBackend(SmsBackendBase):
                     or not self.secret_access_key
                 ):
                     raise ImproperlyConfigured(
-                        "AWS SNS credentials are not fully configured. Check 'SNS_REGION','SNS_SECRET_KEY', and 'SNS_ACCESS_KEY' in settings."
+                        "AWS SNS credentials are not fully configured. Check 'SNS_REGION', 'SNS_ACCESS_KEY', and 'SNS_SECRET_KEY' in settings."
                     )
                 self.sns_client = boto3.client(
                     "sns",
@@ -52,6 +66,15 @@ class SnsBackend(SmsBackendBase):
                 )
 
     def send_message(self, message: TextMessage) -> int:
+        """
+        Send a text message using AWS SNS.
+
+        Args:
+            message (TextMessage): The message to be sent.
+
+        Returns:
+            int: The number of messages successfully sent.
+        """
         if not self.sns_client:
             return 0
 

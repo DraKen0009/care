@@ -5,23 +5,34 @@ class SmsBackendBase:
     """
     Base class for all SMS backends.
 
-    Subclasses should override `send_messages`.
+    Subclasses should override the `send_message` method to provide the logic
+    for sending SMS messages.
     """
 
     def __init__(self, fail_silently: bool = False, **kwargs) -> None:
+        """
+        Initialize the SMS backend.
+
+        Args:
+            fail_silently (bool): Whether to suppress exceptions during message sending. Defaults to False.
+            **kwargs: Additional arguments for backend configuration.
+        """
         self.fail_silently = fail_silently
 
     def send_message(self, message: TextMessage) -> int:
         """
-        Send one or more text messages.
+        Send a text message.
+
+        Subclasses must implement this method to handle the logic for sending
+        messages using the specific backend.
 
         Args:
-            messages (List[TextMessage]): List of messages to send.
+            message (TextMessage): The message to be sent.
 
         Raises:
-            NotImplementedError: If not implemented in subclass.
+            NotImplementedError: If the method is not implemented in a subclass.
 
         Returns:
-            int: Number of messages sent.
+            int: The number of messages successfully sent.
         """
-        raise NotImplementedError("Subclasses must implement `send_messages`.")
+        raise NotImplementedError("Subclasses must implement `send_message`.")

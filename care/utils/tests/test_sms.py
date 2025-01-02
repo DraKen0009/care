@@ -25,7 +25,7 @@ class ConsoleBackendTests(BaseSmsBackendTests, SimpleTestCase):
         stream = StringIO()
         connection = sms.initialize_backend(self.sms_backend, stream=stream)
         message = TextMessage("Content", "0600000000", ["0600000000"])
-        connection.send_messages(message)
+        connection.send_message(message)
         messages = stream.getvalue().split("\n" + ("-" * 79) + "\n")
         self.assertIn("From: ", messages[0])
 
@@ -47,7 +47,7 @@ class AwsBackendTests(BaseSmsBackendTests, SimpleTestCase):
         self._settings_override.disable()
         super().tearDown()
 
-    def test_send_messages(self) -> None:
+    def test_send_message(self) -> None:
         message = TextMessage(
             content="Here is the message",
             sender="+12065550100",

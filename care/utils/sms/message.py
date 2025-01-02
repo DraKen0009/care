@@ -25,7 +25,7 @@ class TextMessage:
             content (str): The message content.
             sender (Optional[str]): The sender's phone number.
             recipients (Optional[List[str]]): List of recipient phone numbers.
-            backend (Optional[Type['SmsBackendBase']]): Backend for sending the message.
+            backend (Optional[SmsBackendBase]): Backend for sending the message.
         """
         self.content = content
         self.sender = sender or getattr(settings, "DEFAULT_SMS_SENDER", "")
@@ -35,28 +35,28 @@ class TextMessage:
         if isinstance(self.recipients, str):
             raise ValueError("Recipients should be a list of phone numbers.")
 
-    def establish_backend(self, silent_fail: bool = False) -> type["SmsBackendBase"]:
+    def establish_backend(self, fail_silently: bool = False) -> "SmsBackendBase":
         """
         Obtain or initialize the backend for sending messages.
 
         Args:
-            silent_fail (bool): Whether errors should be suppressed.
+            fail_silently (bool): Whether to suppress errors during backend initialization.
 
         Returns:
             SmsBackendBase: An instance of the configured backend.
         """
-        from sms import get_sms_backend
+        from care.utils.sms import get_sms_backend
 
         if not self.backend:
-            self.backend = get_sms_backend(silent_fail=silent_fail)
+            self.backend = get_sms_backend(fail_silently=fail_silently)
         return self.backend
 
-    def dispatch(self, silent_fail: bool = False) -> int:
+    def dispatch(self, fail_silently: bool = False) -> int:
         """
         Send the message to all designated recipients.
 
         Args:
-            silent_fail (bool): Whether to suppress any errors.
+            fail_silently (bool): Whether to suppress errors during message sending.
 
         Returns:
             int: Count of successfully sent messages.
@@ -64,5 +64,5 @@ class TextMessage:
         if not self.recipients:
             return 0
 
-        connection = self.establish_backend(silent_fail)
-        return connection.send_message(self)
+        connection = self.establish_backend(fail_silently)
+        return connection.send_messages([self])
