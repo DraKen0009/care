@@ -41,15 +41,13 @@ class PatientMobileOTPSerializer(serializers.ModelSerializer):
         otp = rand_pass(settings.OTP_LENGTH)
 
         if settings.USE_SMS:
-            message = sms.TextMessage(
+            sms.send_text_message(
                 content=(
                     f"Open Healthcare Network Patient Management System Login, OTP is {otp} . "
                     "Please do not share this Confidential Login Token with anyone else"
                 ),
                 recipients=[otp_obj.phone_number],
             )
-            connection = sms.initialize_backend()
-            connection.send_message(message)
         elif settings.DEBUG:
             print(otp, otp_obj.phone_number)  # noqa: T201
 

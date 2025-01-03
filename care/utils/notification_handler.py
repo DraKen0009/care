@@ -371,12 +371,10 @@ class NotificationGenerator:
                 medium == Notification.Medium.SMS.value
                 and settings.SEND_SMS_NOTIFICATION
             ):
-                message = sms.TextMessage(
+                sms.send_text_message(
                     content=self.generate_sms_message(),
                     recipients=self.generate_sms_phone_numbers(),
                 )
-                connection = sms.initialize_backend()
-                connection.send_message(message)
             elif medium == Notification.Medium.SYSTEM.value:
                 if not self.message:
                     self.message = self.generate_system_message()

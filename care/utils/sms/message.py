@@ -17,6 +17,7 @@ class TextMessage:
         sender: str | None = None,
         recipients: list[str] | None = None,
         backend: type["SmsBackendBase"] | None = None,
+        fail_silently: bool = False,
     ) -> None:
         """
         Initialize a TextMessage instance.
@@ -32,24 +33,13 @@ class TextMessage:
         self.recipients = recipients or []
         self.backend = backend
 
+        if not self.backend:
+            from care.utils.sms import get_sms_backend
+
+            self.backend = get_sms_backend(fail_silently=fail_silently)
+
         if isinstance(self.recipients, str):
             raise ValueError("Recipients should be a list of phone numbers.")
-
-    def establish_backend(self, fail_silently: bool = False) -> "SmsBackendBase":
-        """
-        Obtain or initialize the backend for sending messages.
-
-        Args:
-            fail_silently (bool): Whether to suppress errors during backend initialization.
-
-        Returns:
-            SmsBackendBase: An instance of the configured backend.
-        """
-        from care.utils.sms import get_sms_backend
-
-        if not self.backend:
-            self.backend = get_sms_backend(fail_silently=fail_silently)
-        return self.backend
 
     def dispatch(self, fail_silently: bool = False) -> int:
         """
@@ -64,5 +54,5 @@ class TextMessage:
         if not self.recipients:
             return 0
 
-        connection = self.establish_backend(fail_silently)
-        return connection.send_messages([self])
+        connection = self.backend
+        return connection.send_message(self)

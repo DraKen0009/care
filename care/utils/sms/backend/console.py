@@ -37,7 +37,8 @@ class ConsoleBackend(SmsBackendBase):
         with self._lock:
             for recipient in message.recipients:
                 self.stream.write(
-                    f"From: {message.sender}\nTo: {recipient}\nContent: {message.content}\n{'-' * 50}\n"
+                    f"From: {message.sender}\nTo: {recipient}\nContent: {message.content}\n{'-' * 100}\n"
                 )
                 sent_count += 1
+            self.stream.flush()
         return sent_count

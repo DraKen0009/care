@@ -18,6 +18,48 @@ class SnsBackend(SmsBackendBase):
     Sends SMS messages using AWS SNS.
     """
 
+    _sns_client = None
+
+    @classmethod
+    def _get_client(cls):
+        """
+        Get or create the SNS client.
+
+        Returns:
+            boto3.Client: The shared SNS client.
+        """
+        if cls._sns_client is None:
+            region_name = getattr(settings, "SNS_REGION", None)
+
+            if not HAS_BOTO3:
+                raise ImproperlyConfigured(
+                    "Boto3 library is required but not installed."
+                )
+
+            if getattr(settings, "SNS_ROLE_BASED_MODE", False):
+                if not region_name:
+                    raise ImproperlyConfigured(
+                        "AWS SNS is not configured. Check 'SNS_REGION' in settings."
+                    )
+                cls._sns_client = boto3.client(
+                    "sns",
+                    region_name=region_name,
+                )
+            else:
+                access_key_id = getattr(settings, "SNS_ACCESS_KEY", None)
+                secret_access_key = getattr(settings, "SNS_SECRET_KEY", None)
+                if not region_name or not access_key_id or not secret_access_key:
+                    raise ImproperlyConfigured(
+                        "AWS SNS credentials are not fully configured. Check 'SNS_REGION', 'SNS_ACCESS_KEY', and 'SNS_SECRET_KEY' in settings."
+                    )
+                cls._sns_client = boto3.client(
+                    "sns",
+                    region_name=region_name,
+                    aws_access_key_id=access_key_id,
+                    aws_secret_access_key=secret_access_key,
+                )
+        return cls._sns_client
+
     def __init__(self, fail_silently: bool = False, **kwargs) -> None:
         """
         Initialize the SNS backend.
@@ -25,45 +67,8 @@ class SnsBackend(SmsBackendBase):
         Args:
             fail_silently (bool): Whether to suppress exceptions during initialization. Defaults to False.
             **kwargs: Additional arguments for backend configuration.
-
-        Raises:
-            ImproperlyConfigured: If required AWS SNS settings are missing or boto3 is not installed.
         """
         super().__init__(fail_silently=fail_silently, **kwargs)
-
-        if not HAS_BOTO3 and not self.fail_silently:
-            raise ImproperlyConfigured("Boto3 library is required but not installed.")
-
-        self.region_name = getattr(settings, "SNS_REGION", None)
-        self.access_key_id = getattr(settings, "SNS_ACCESS_KEY", None)
-        self.secret_access_key = getattr(settings, "SNS_SECRET_KEY", None)
-
-        self.sns_client = None
-        if HAS_BOTO3:
-            if getattr(settings, "SNS_ROLE_BASED_MODE", False):
-                if not self.region_name:
-                    raise ImproperlyConfigured(
-                        "AWS SNS is not configured. Check 'SNS_REGION' in settings."
-                    )
-                self.sns_client = boto3.client(
-                    "sns",
-                    region_name=self.region_name,
-                )
-            else:
-                if (
-                    not self.region_name
-                    or not self.access_key_id
-                    or not self.secret_access_key
-                ):
-                    raise ImproperlyConfigured(
-                        "AWS SNS credentials are not fully configured. Check 'SNS_REGION', 'SNS_ACCESS_KEY', and 'SNS_SECRET_KEY' in settings."
-                    )
-                self.sns_client = boto3.client(
-                    "sns",
-                    region_name=self.region_name,
-                    aws_access_key_id=self.access_key_id,
-                    aws_secret_access_key=self.secret_access_key,
-                )
 
     def send_message(self, message: TextMessage) -> int:
         """
@@ -75,13 +80,12 @@ class SnsBackend(SmsBackendBase):
         Returns:
             int: The number of messages successfully sent.
         """
-        if not self.sns_client:
-            return 0
-
+        sns_client = self._get_client()
         successful_sends = 0
+
         for recipient in message.recipients:
             try:
-                self.sns_client.publish(
+                sns_client.publish(
                     PhoneNumber=recipient,
                     Message=message.content,
                 )
