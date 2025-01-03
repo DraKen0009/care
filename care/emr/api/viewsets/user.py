@@ -18,6 +18,7 @@ from care.emr.resources.user.spec import (
     UserTypeRoleMapping,
     UserUpdateSpec,
 )
+from care.security.authorization import AuthorizationController
 from care.security.models import RoleModel
 from care.users.api.serializers.user import UserImageUploadSerializer, UserSerializer
 from care.users.models import User
@@ -72,7 +73,11 @@ class UserViewSet(EMRModelViewSet):
     def authorize_update(self, request_obj, model_instance):
         if self.request.user.is_superuser:
             return True
-        return request_obj.user == model_instance
+        return self.request.user.id == model_instance.id
+
+    def authorize_create(self, instance):
+        if not AuthorizationController.call("can_create_user", self.request.user):
+            raise PermissionDenied("You do not have permission to create Users")
 
     def authorize_delete(self, instance):
         return self.request.user.is_superuser

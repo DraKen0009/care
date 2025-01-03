@@ -7,7 +7,8 @@ from django.db.models import Sum
 from django.utils import timezone
 from pydantic import UUID4, BaseModel, model_validator
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
 from care.emr.api.viewsets.base import EMRBaseViewSet, EMRRetrieveMixin
@@ -20,12 +21,13 @@ from care.emr.resources.scheduling.slot.spec import (
     TokenBookingReadSpec,
     TokenSlotBaseSpec,
 )
+from care.security.authorization import AuthorizationController
 from care.users.models import User
 from care.utils.lock import Lock
 
 
 class SlotsForDayRequestSpec(BaseModel):
-    resource: UUID4
+    user: UUID4
     day: datetime.date
 
 
@@ -37,7 +39,7 @@ class AppointmentBookingSpec(BaseModel):
 class AvailabilityStatsRequestSpec(BaseModel):
     from_date: datetime.date
     to_date: datetime.date
-    resource: UUID4
+    user: UUID4
 
     @model_validator(mode="after")
     def validate_period(self):
@@ -104,12 +106,10 @@ class SlotViewSet(EMRRetrieveMixin, EMRBaseViewSet):
     @classmethod
     def get_slots_for_day_handler(cls, facility_external_id, request_data):
         request_data = SlotsForDayRequestSpec(**request_data)
-        user = User.objects.filter(external_id=request_data.resource).first()
-        if not user:
-            raise ValidationError("Resource does not exist")
+        user = get_object_or_404(User, external_id=request_data.user)
         schedulable_resource_obj = SchedulableUserResource.objects.filter(
             facility__external_id=facility_external_id,
-            resource=user,
+            user=user,
         ).first()
         if not schedulable_resource_obj:
             raise ValidationError("Resource is not schedulable")
@@ -194,9 +194,13 @@ class SlotViewSet(EMRRetrieveMixin, EMRBaseViewSet):
 
     @action(detail=True, methods=["POST"])
     def create_appointment(self, request, *args, **kwargs):
-        return self.create_appointment_handler(
-            self.get_object(), request.data, request.user
-        )
+        slot_obj = self.get_object()
+        facility = slot_obj.resource.facility
+        if not AuthorizationController.call(
+            "can_create_appointment", self.request.user, facility
+        ):
+            raise PermissionDenied("You do not have permission to create appointments")
+        return self.create_appointment_handler(slot_obj, request.data, request.user)
 
     @action(detail=False, methods=["POST"])
     def availability_stats(self, request, *args, **kwargs):
@@ -206,10 +210,10 @@ class SlotViewSet(EMRRetrieveMixin, EMRBaseViewSet):
         """
         request_data = AvailabilityStatsRequestSpec(**request.data)
         # Fetch the entire schedule and calculate total slots available for each day
-        user = User.objects.filter(external_id=request_data.resource).first()
+        user = User.objects.filter(external_id=request_data.user).first()
         if not user:
             raise ValidationError("User does not exist")
-        resource = SchedulableUserResource.objects.filter(resource=user).first()
+        resource = SchedulableUserResource.objects.filter(user=user).first()
         if not resource:
             raise ValidationError("Resource is not schedulable")
 
